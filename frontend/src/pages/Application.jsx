@@ -24,6 +24,8 @@ export default function Application() {
 
   const [newEvent, setNewEvent] = useState({ title: '', description: '', date: '' });
   const [newJob, setNewJob] = useState({ title: '', description: '', company: '', address: '', pay: '' });
+  const [newHousing, setNewHousing] = useState({ title: '', description: '', address: '', rent: '' });
+  const [createMode, setCreateMode] = useState(null); // 'event', 'job', 'housing', or null
 
   useEffect(() => {
     loadData();
@@ -56,6 +58,17 @@ export default function Application() {
     setJobs((prev) => [res.data.job, ...prev]);
     setNewJob({ title: '', description: '', company: '', address: '', pay: '' });
     setShowCreateModal(false);
+    setCreateMode(null);
+  };
+
+  const createHousing = async (e) => {
+    e.preventDefault();
+    const payload = { ...newHousing, rent: newHousing.rent ? Number(newHousing.rent) : undefined };
+    const res = await api.post('/api/housing', payload);
+    setHousing((prev) => [res.data.housing, ...prev]);
+    setNewHousing({ title: '', description: '', address: '', rent: '' });
+    setShowCreateModal(false);
+    setCreateMode(null);
   };
 
   const applyToEvent = async (eventId) => {
@@ -202,74 +215,179 @@ export default function Application() {
 
       {/* Create Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => setShowCreateModal(false)}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => { setShowCreateModal(false); setCreateMode(null); }}>
           <div className="bg-white dark:bg-hope-gray-800 rounded-2xl max-w-md w-full p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-xl font-bold text-hope-gray-800 dark:text-hope-gray-100 mb-4">
               Create New
             </h3>
             
-            <div className="space-y-3 mb-6">
-              <button
-                onClick={() => {/* Keep modal open, show event form */}}
-                className="w-full text-left p-4 rounded-lg border-2 border-hope-gray-200 dark:border-hope-gray-700 hover:border-primary transition-colors"
-              >
-                <div className="flex items-center space-x-3">
-                  <span className="text-2xl">🎉</span>
-                  <div>
-                    <div className="font-semibold text-hope-gray-800 dark:text-hope-gray-100">Create Event</div>
-                    <div className="text-sm text-hope-gray-600 dark:text-hope-gray-400">Host a community gathering</div>
+            {!createMode ? (
+              <div className="space-y-3 mb-6">
+                <button
+                  onClick={() => setCreateMode('event')}
+                  className="w-full text-left p-4 rounded-lg border-2 border-hope-gray-200 dark:border-hope-gray-700 hover:border-primary transition-colors"
+                >
+                  <div className="flex items-center space-x-3">
+                    <span className="text-2xl">🎉</span>
+                    <div>
+                      <div className="font-semibold text-hope-gray-800 dark:text-hope-gray-100">Create Event</div>
+                      <div className="text-sm text-hope-gray-600 dark:text-hope-gray-400">Host a community gathering</div>
+                    </div>
                   </div>
-                </div>
-              </button>
-              
-              <button
-                onClick={() => {/* Keep modal open, show job form */}}
-                className="w-full text-left p-4 rounded-lg border-2 border-hope-gray-200 dark:border-hope-gray-700 hover:border-secondary transition-colors"
-              >
-                <div className="flex items-center space-x-3">
-                  <span className="text-2xl">💼</span>
-                  <div>
-                    <div className="font-semibold text-hope-gray-800 dark:text-hope-gray-100">Post a Job</div>
-                    <div className="text-sm text-hope-gray-600 dark:text-hope-gray-400">Share employment opportunities</div>
+                </button>
+                
+                <button
+                  onClick={() => setCreateMode('job')}
+                  className="w-full text-left p-4 rounded-lg border-2 border-hope-gray-200 dark:border-hope-gray-700 hover:border-secondary transition-colors"
+                >
+                  <div className="flex items-center space-x-3">
+                    <span className="text-2xl">💼</span>
+                    <div>
+                      <div className="font-semibold text-hope-gray-800 dark:text-hope-gray-100">Post a Job</div>
+                      <div className="text-sm text-hope-gray-600 dark:text-hope-gray-400">Share employment opportunities</div>
+                    </div>
                   </div>
-                </div>
-              </button>
-            </div>
+                </button>
 
-            {/* Quick Event Form */}
-            <div className="border-t border-hope-gray-200 dark:border-hope-gray-700 pt-4">
-              <h4 className="font-semibold mb-3 text-hope-gray-700 dark:text-hope-gray-300">Quick Create Event</h4>
-              <form onSubmit={createEvent} className="space-y-3">
-                <input
-                  className="input-fiverr text-sm"
-                  placeholder="Event Title"
-                  value={newEvent.title}
-                  onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
-                  required
-                />
-                <textarea
-                  className="input-fiverr text-sm"
-                  placeholder="Description"
-                  rows="2"
-                  value={newEvent.description}
-                  onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
-                />
-                <input
-                  className="input-fiverr text-sm"
-                  type="date"
-                  value={newEvent.date}
-                  onChange={(e) => setNewEvent({ ...newEvent, date: e.target.value })}
-                  required
-                />
-                <button type="submit" className="btn-primary w-full">Create Event</button>
-              </form>
-            </div>
+                <button
+                  onClick={() => setCreateMode('housing')}
+                  className="w-full text-left p-4 rounded-lg border-2 border-hope-gray-200 dark:border-hope-gray-700 hover:border-accent transition-colors"
+                >
+                  <div className="flex items-center space-x-3">
+                    <span className="text-2xl">🏠</span>
+                    <div>
+                      <div className="font-semibold text-hope-gray-800 dark:text-hope-gray-100">List Housing</div>
+                      <div className="text-sm text-hope-gray-600 dark:text-hope-gray-400">Share affordable housing</div>
+                    </div>
+                  </div>
+                </button>
+              </div>
+            ) : null}
+
+            {/* Event Form */}
+            {createMode === 'event' && (
+              <div className="border-t border-hope-gray-200 dark:border-hope-gray-700 pt-4">
+                <h4 className="font-semibold mb-3 text-hope-gray-700 dark:text-hope-gray-300">Create Event</h4>
+                <form onSubmit={createEvent} className="space-y-3">
+                  <input
+                    className="input-fiverr text-sm"
+                    placeholder="Event Title"
+                    value={newEvent.title}
+                    onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
+                    required
+                  />
+                  <textarea
+                    className="input-fiverr text-sm"
+                    placeholder="Description"
+                    rows="2"
+                    value={newEvent.description}
+                    onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
+                  />
+                  <input
+                    className="input-fiverr text-sm"
+                    type="date"
+                    value={newEvent.date}
+                    onChange={(e) => setNewEvent({ ...newEvent, date: e.target.value })}
+                    required
+                  />
+                  <button type="submit" className="btn-primary w-full">Create Event</button>
+                </form>
+              </div>
+            )}
+
+            {/* Job Form */}
+            {createMode === 'job' && (
+              <div className="border-t border-hope-gray-200 dark:border-hope-gray-700 pt-4">
+                <h4 className="font-semibold mb-3 text-hope-gray-700 dark:text-hope-gray-300">Post Job</h4>
+                <form onSubmit={createJob} className="space-y-3">
+                  <input
+                    className="input-fiverr text-sm"
+                    placeholder="Job Title"
+                    value={newJob.title}
+                    onChange={(e) => setNewJob({ ...newJob, title: e.target.value })}
+                    required
+                  />
+                  <textarea
+                    className="input-fiverr text-sm"
+                    placeholder="Description"
+                    rows="2"
+                    value={newJob.description}
+                    onChange={(e) => setNewJob({ ...newJob, description: e.target.value })}
+                  />
+                  <input
+                    className="input-fiverr text-sm"
+                    placeholder="Company"
+                    value={newJob.company}
+                    onChange={(e) => setNewJob({ ...newJob, company: e.target.value })}
+                  />
+                  <input
+                    className="input-fiverr text-sm"
+                    placeholder="Address"
+                    value={newJob.address}
+                    onChange={(e) => setNewJob({ ...newJob, address: e.target.value })}
+                  />
+                  <input
+                    className="input-fiverr text-sm"
+                    placeholder="Pay ($)"
+                    type="number"
+                    value={newJob.pay}
+                    onChange={(e) => setNewJob({ ...newJob, pay: e.target.value })}
+                  />
+                  <button type="submit" className="btn-primary w-full">Post Job</button>
+                </form>
+              </div>
+            )}
+
+            {/* Housing Form */}
+            {createMode === 'housing' && (
+              <div className="border-t border-hope-gray-200 dark:border-hope-gray-700 pt-4">
+                <h4 className="font-semibold mb-3 text-hope-gray-700 dark:text-hope-gray-300">List Housing</h4>
+                <form onSubmit={createHousing} className="space-y-3">
+                  <input
+                    className="input-fiverr text-sm"
+                    placeholder="Housing Title"
+                    value={newHousing.title}
+                    onChange={(e) => setNewHousing({ ...newHousing, title: e.target.value })}
+                    required
+                  />
+                  <textarea
+                    className="input-fiverr text-sm"
+                    placeholder="Description"
+                    rows="2"
+                    value={newHousing.description}
+                    onChange={(e) => setNewHousing({ ...newHousing, description: e.target.value })}
+                  />
+                  <input
+                    className="input-fiverr text-sm"
+                    placeholder="Address"
+                    value={newHousing.address}
+                    onChange={(e) => setNewHousing({ ...newHousing, address: e.target.value })}
+                    required
+                  />
+                  <input
+                    className="input-fiverr text-sm"
+                    placeholder="Monthly Rent ($)"
+                    type="number"
+                    value={newHousing.rent}
+                    onChange={(e) => setNewHousing({ ...newHousing, rent: e.target.value })}
+                    required
+                  />
+                  <button type="submit" className="btn-primary w-full">List Housing</button>
+                </form>
+              </div>
+            )}
 
             <button
-              onClick={() => setShowCreateModal(false)}
+              onClick={() => { 
+                if (createMode) {
+                  setCreateMode(null);
+                } else {
+                  setShowCreateModal(false);
+                }
+              }}
               className="mt-4 w-full btn-secondary"
             >
-              Cancel
+              {createMode ? 'Back' : 'Cancel'}
             </button>
           </div>
         </div>

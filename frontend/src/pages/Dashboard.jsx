@@ -28,7 +28,7 @@ function StatCard({ title, value, subtitle, icon, trend }) {
           )}
         </div>
         {icon && (
-          <div className="text-3xl opacity-20">{icon}</div>
+          <div className="text-3xl opacity-75">{icon}</div>
         )}
       </div>
       {trend && (
