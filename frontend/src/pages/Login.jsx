@@ -1,0 +1,131 @@
+import React, { useState } from 'react';
+import axios from 'axios';
+import ThemeToggle from '../components/ThemeToggle.jsx';
+
+export default function Login() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    try {
+      const res = await axios.post('/api/auth/login', { email, password });
+      localStorage.setItem('token', res.data.token);
+      window.location.href = '/';
+    } catch (err) {
+      setError(err.response?.data?.error || 'Login failed');
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex transition-theme bg-hope-gray-50 dark:bg-hope-gray-900">
+      {/* Left Side - Hero */}
+      <div className="hidden lg:flex lg:w-1/2 hero-gradient items-center justify-center p-12">
+        <div className="max-w-md text-white">
+          <h1 className="text-5xl font-bold mb-6">Welcome back to HOPE</h1>
+          <p className="text-xl text-white/90 mb-8">
+            Continue your journey to find community support, meaningful work, and a place to call home.
+          </p>
+          <div className="space-y-4">
+            <div className="flex items-start space-x-3">
+              <span className="text-2xl">✨</span>
+              <div>
+                <h3 className="font-semibold mb-1">Connect with Community</h3>
+                <p className="text-white/80 text-sm">Join events and meet people who care</p>
+              </div>
+            </div>
+            <div className="flex items-start space-x-3">
+              <span className="text-2xl">💼</span>
+              <div>
+                <h3 className="font-semibold mb-1">Find Opportunities</h3>
+                <p className="text-white/80 text-sm">Access job listings tailored for you</p>
+              </div>
+            </div>
+            <div className="flex items-start space-x-3">
+              <span className="text-2xl">🏠</span>
+              <div>
+                <h3 className="font-semibold mb-1">Secure Housing</h3>
+                <p className="text-white/80 text-sm">Browse affordable housing options</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Right Side - Form */}
+      <div className="flex-1 flex items-center justify-center p-6 sm:p-12">
+        <div className="absolute top-4 right-4">
+          <ThemeToggle />
+        </div>
+        
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-hope-green-dark bg-clip-text text-transparent mb-2">
+              Sign in to HOPE
+            </h1>
+            <p className="text-hope-gray-600 dark:text-hope-gray-400">
+              Access your dashboard and continue building your future
+            </p>
+          </div>
+
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400 text-sm">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={onSubmit} className="space-y-5">
+            <div>
+              <label className="block text-sm font-medium text-hope-gray-700 dark:text-hope-gray-300 mb-2">
+                Email Address
+              </label>
+              <input
+                type="email"
+                className="input-fiverr"
+                placeholder="your.email@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-hope-gray-700 dark:text-hope-gray-300 mb-2">
+                Password
+              </label>
+              <input
+                type="password"
+                className="input-fiverr"
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+
+            <button type="submit" className="w-full btn-primary py-3 text-base">
+              Sign In
+            </button>
+          </form>
+
+          <div className="mt-6 text-center">
+            <p className="text-sm text-hope-gray-600 dark:text-hope-gray-400">
+              Don't have an account?{' '}
+              <a href="/register" className="text-primary hover:text-hope-green-dark font-semibold transition-colors">
+                Join HOPE today
+              </a>
+            </p>
+          </div>
+
+          <div className="mt-8 pt-6 border-t border-hope-gray-200 dark:border-hope-gray-700 text-center">
+            <p className="text-xs text-hope-gray-500 dark:text-hope-gray-500">
+              By continuing, you agree to HOPE's Terms of Service and Privacy Policy
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,190 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Fiverr-inspired HOPE Platform Styles */
+
+@layer base {
+  body {
+    @apply antialiased;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+}
+
+@layer components {
+  /* Card Styles */
+  .card-fiverr {
+    @apply bg-white dark:bg-hope-gray-800 rounded-lg border border-hope-gray-200 dark:border-hope-gray-700 
+           hover:shadow-card-hover transition-all duration-200 cursor-pointer;
+  }
+
+  .card-fiverr:hover {
+    transform: translateY(-4px);
+  }
+
+  /* Button Styles */
+  .btn-primary {
+    @apply bg-primary text-white font-medium px-6 py-2.5 rounded-md 
+           transition-all duration-200 shadow-sm hover:shadow-md;
+  }
+  
+  .btn-primary:hover {
+    background-color: #19a463;
+  }
+
+  .btn-secondary {
+    @apply bg-white dark:bg-hope-gray-700 text-hope-gray-700 dark:text-white border border-hope-gray-300 
+           dark:border-hope-gray-600 hover:border-hope-gray-400 font-medium px-6 py-2.5 rounded-md 
+           transition-all duration-200;
+  }
+
+  .btn-outline {
+    @apply border border-primary text-primary font-medium px-6 py-2.5 rounded-md transition-all duration-200;
+  }
+  
+  .btn-outline:hover {
+    background-color: #e7f7ee;
+  }
+  
+  .dark .btn-outline:hover {
+    background-color: rgba(64, 65, 69, 1);
+  }
+
+  /* Input Styles */
+  .input-fiverr {
+    @apply w-full border border-hope-gray-300 dark:border-hope-gray-600 rounded-md px-4 py-2.5 
+           bg-white dark:bg-hope-gray-800 text-hope-gray-700 dark:text-hope-gray-100 
+           focus:border-primary focus:ring-2 focus:ring-hope-green-light dark:focus:ring-hope-gray-600 
+           focus:outline-none transition-all duration-200;
+  }
+
+  /* Badge Styles */
+  .badge {
+    @apply px-3 py-1 rounded-full text-xs font-medium;
+  }
+
+  .badge-success {
+    @apply badge bg-hope-green-light text-hope-green dark:bg-hope-green dark:text-white;
+  }
+
+  .badge-warning {
+    @apply badge bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200;
+  }
+
+  .badge-info {
+    @apply badge bg-hope-blue-light text-secondary dark:bg-secondary dark:text-white;
+  }
+
+  .badge-pending {
+    @apply badge bg-gray-100 text-gray-700 dark:bg-hope-gray-700 dark:text-gray-300;
+  }
+
+  /* Search Bar */
+  .search-bar {
+    @apply flex items-center bg-white dark:bg-hope-gray-800 rounded-lg shadow-card 
+           border border-hope-gray-200 dark:border-hope-gray-700 overflow-hidden;
+  }
+
+  /* Navigation */
+  .nav-link {
+    @apply text-hope-gray-700 dark:text-hope-gray-300 hover:text-primary dark:hover:text-primary 
+           font-medium transition-colors duration-150;
+  }
+
+  /* Gig Card (Event/Job Card) */
+  .gig-card {
+    @apply bg-white dark:bg-hope-gray-800 rounded-lg overflow-hidden shadow-card 
+           hover:shadow-card-hover transition-all duration-200 cursor-pointer;
+  }
+
+  .gig-card:hover {
+    transform: translateY(-2px);
+  }
+
+  /* Stats Card */
+  .stats-card {
+    @apply bg-white dark:bg-hope-gray-800 rounded-xl p-6 shadow-soft 
+           border border-hope-gray-100 dark:border-hope-gray-700;
+  }
+
+  /* Tab Navigation */
+  .tab {
+    @apply px-4 py-3 text-sm font-medium text-hope-gray-600 dark:text-hope-gray-400 
+           border-b-2 border-transparent hover:text-hope-gray-800 dark:hover:text-hope-gray-200 
+           transition-colors duration-150 cursor-pointer;
+  }
+
+  .tab-active {
+    @apply tab text-primary border-primary dark:text-primary dark:border-primary;
+  }
+
+  /* Hover Row */
+  .hover-row {
+    @apply transition-colors duration-150 cursor-pointer;
+  }
+
+  .hover-row:hover {
+    @apply bg-hope-gray-50 dark:bg-hope-gray-700/50;
+  }
+
+  /* Hero Section */
+  .hero-gradient {
+    background: linear-gradient(135deg, #1dbf73 0%, #19a463 100%);
+  }
+
+  /* Category Card */
+  .category-card {
+    @apply bg-white dark:bg-hope-gray-800 rounded-xl p-6 text-center shadow-soft 
+           hover:shadow-card transition-all duration-200 cursor-pointer border border-transparent
+           hover:border-primary;
+  }
+
+  .category-card:hover {
+    transform: translateY(-4px);
+  }
+}
+
+@layer utilities {
+  /* Text Utilities */
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Smooth Transitions */
+  .transition-theme {
+    transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
+  }
+
+  /* Truncate with lines */
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-hope-gray-100 dark:bg-hope-gray-800;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-hope-gray-400 dark:bg-hope-gray-600 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-hope-gray-500 dark:bg-hope-gray-500;
+}
