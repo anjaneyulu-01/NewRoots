@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function EventCard({ event, onApply }) {
+export default function EventCard({ event, onApply, onContact }) {
   const formatDate = (date) => {
     return new Date(date).toLocaleDateString('en-US', { 
       month: 'short', 
@@ -53,12 +53,20 @@ export default function EventCard({ event, onApply }) {
           <div className="text-sm text-hope-gray-600 dark:text-hope-gray-400">
             {event.creator?.name || 'Community Event'}
           </div>
-          <button
-            onClick={() => onApply && onApply(event._id)}
-            className="px-4 py-1.5 bg-primary hover:bg-hope-green-dark text-white text-sm font-medium rounded-md transition-colors duration-150"
-          >
-            Apply Now
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => onApply && onApply(event._id)}
+              className="px-4 py-1.5 bg-primary hover:bg-hope-green-dark text-white text-sm font-medium rounded-md transition-colors duration-150"
+            >
+              Apply Now
+            </button>
+            <button
+              onClick={() => onContact && onContact(event._id)}
+              className="px-4 py-1.5 bg-hope-gray-800 hover:bg-hope-gray-900 text-white text-sm font-medium rounded-md transition-colors duration-150 dark:bg-hope-gray-700 dark:hover:bg-hope-gray-600"
+            >
+              Contact
+            </button>
+          </div>
         </div>
       </div>
     </div>

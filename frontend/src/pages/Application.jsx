@@ -6,6 +6,8 @@ import EventCard from '../components/EventCard.jsx';
 import JobCard from '../components/JobCard.jsx';
 import HousingCard from '../components/HousingCard.jsx';
 import CategoryCard from '../components/CategoryCard.jsx';
+import LocationPicker from '../components/LocationPicker.jsx';
+import ContactModal from '../components/ContactModal.jsx';
 
 const api = axios.create();
 api.interceptors.request.use((config) => {
@@ -21,10 +23,14 @@ export default function Application() {
   const [activeTab, setActiveTab] = useState('events');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [locationPickerMode, setLocationPickerMode] = useState(null); // 'event', 'job', 'housing'
+  const [showContactModal, setShowContactModal] = useState(false);
+  const [contactModal, setContactModal] = useState({ resourceType: null, resourceId: null });
 
-  const [newEvent, setNewEvent] = useState({ title: '', description: '', date: '' });
-  const [newJob, setNewJob] = useState({ title: '', description: '', company: '', address: '', pay: '' });
-  const [newHousing, setNewHousing] = useState({ title: '', description: '', address: '', rent: '' });
+  const [newEvent, setNewEvent] = useState({ title: '', description: '', date: '', location: null });
+  const [newJob, setNewJob] = useState({ title: '', description: '', company: '', address: '', pay: '', location: null });
+  const [newHousing, setNewHousing] = useState({ title: '', description: '', address: '', rent: '', location: null });
   const [createMode, setCreateMode] = useState(null); // 'event', 'job', 'housing', or null
 
   useEffect(() => {
@@ -44,7 +50,20 @@ export default function Application() {
 
   const createEvent = async (e) => {
     e.preventDefault();
-    const payload = { ...newEvent, date: new Date(newEvent.date) };
+    if (!newEvent.location) {
+      alert('Please pick a location on the map for the event.');
+      return;
+    }
+    const payload = {
+      title: newEvent.title,
+      description: newEvent.description,
+      date: new Date(newEvent.date),
+      location: {
+        address: newEvent.location.address,
+        lat: newEvent.location.lat,
+        lng: newEvent.location.lng,
+      },
+    };
     const res = await api.post('/api/events', payload);
     setEvents((prev) => [res.data.event, ...prev]);
     setNewEvent({ title: '', description: '', date: '' });
@@ -53,7 +72,19 @@ export default function Application() {
 
   const createJob = async (e) => {
     e.preventDefault();
-    const payload = { ...newJob, pay: newJob.pay ? Number(newJob.pay) : undefined };
+    if (!newJob.location) {
+      alert('Please pick a location on the map for the job.');
+      return;
+    }
+    const payload = {
+      title: newJob.title,
+      description: newJob.description,
+      company: newJob.company,
+      address: newJob.location.address,
+      lat: newJob.location.lat,
+      lng: newJob.location.lng,
+      pay: newJob.pay ? Number(newJob.pay) : undefined,
+    };
     const res = await api.post('/api/jobs', payload);
     setJobs((prev) => [res.data.job, ...prev]);
     setNewJob({ title: '', description: '', company: '', address: '', pay: '' });
@@ -63,7 +94,18 @@ export default function Application() {
 
   const createHousing = async (e) => {
     e.preventDefault();
-    const payload = { ...newHousing, rent: newHousing.rent ? Number(newHousing.rent) : undefined };
+    if (!newHousing.location) {
+      alert('Please pick a location on the map for the housing.');
+      return;
+    }
+    const payload = {
+      title: newHousing.title,
+      description: newHousing.description,
+      address: newHousing.location.address,
+      lat: newHousing.location.lat,
+      lng: newHousing.location.lng,
+      rent: newHousing.rent ? Number(newHousing.rent) : undefined,
+    };
     const res = await api.post('/api/housing', payload);
     setHousing((prev) => [res.data.housing, ...prev]);
     setNewHousing({ title: '', description: '', address: '', rent: '' });
@@ -82,6 +124,29 @@ export default function Application() {
 
   const handleSearch = (query) => {
     setSearchQuery(query.toLowerCase());
+  };
+
+  // Location picker handler
+  const handleLocationSelected = (location) => {
+    if (locationPickerMode === 'event') {
+      setNewEvent({ ...newEvent, location });
+    } else if (locationPickerMode === 'job') {
+      setNewJob({ ...newJob, location, address: location.address });
+    } else if (locationPickerMode === 'housing') {
+      setNewHousing({ ...newHousing, location, address: location.address });
+    }
+    setShowLocationPicker(false);
+    setLocationPickerMode(null);
+  };
+
+  const openLocationPicker = (mode) => {
+    setLocationPickerMode(mode);
+    setShowLocationPicker(true);
+  };
+
+  const handleContactClick = (resourceId, resourceType) => {
+    setContactModal({ resourceType, resourceId });
+    setShowContactModal(true);
   };
 
   const filteredEvents = searchQuery 
@@ -163,7 +228,12 @@ export default function Application() {
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {filteredEvents.map((event) => (
-                <EventCard key={event._id} event={event} onApply={applyToEvent} />
+                <EventCard 
+                  key={event._id} 
+                  event={event} 
+                  onApply={applyToEvent}
+                  onContact={(id) => handleContactClick(id, 'Event')}
+                />
               ))}
             </div>
             {filteredEvents.length === 0 && (
@@ -182,7 +252,11 @@ export default function Application() {
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {filteredJobs.map((job) => (
-                <JobCard key={job._id} job={job} />
+                <JobCard 
+                  key={job._id} 
+                  job={job}
+                  onContact={(id) => handleContactClick(id, 'Job')}
+                />
               ))}
             </div>
             {filteredJobs.length === 0 && (
@@ -201,7 +275,11 @@ export default function Application() {
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {filteredHousing.map((house) => (
-                <HousingCard key={house._id} housing={house} />
+                <HousingCard 
+                  key={house._id} 
+                  housing={house}
+                  onContact={(id) => handleContactClick(id, 'Housing')}
+                />
               ))}
             </div>
             {filteredHousing.length === 0 && (
@@ -290,6 +368,13 @@ export default function Application() {
                     onChange={(e) => setNewEvent({ ...newEvent, date: e.target.value })}
                     required
                   />
+                  <button
+                    type="button"
+                    onClick={() => openLocationPicker('event')}
+                    className="w-full p-2 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-lg border border-blue-300 dark:border-blue-700 hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors text-sm font-medium"
+                  >
+                    {newEvent.location ? `📍 Location: ${newEvent.location.address}` : '📍 Pick Location on Map'}
+                  </button>
                   <button type="submit" className="btn-primary w-full">Create Event</button>
                 </form>
               </div>
@@ -333,6 +418,13 @@ export default function Application() {
                     value={newJob.pay}
                     onChange={(e) => setNewJob({ ...newJob, pay: e.target.value })}
                   />
+                  <button
+                    type="button"
+                    onClick={() => openLocationPicker('job')}
+                    className="w-full p-2 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-lg border border-blue-300 dark:border-blue-700 hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors text-sm font-medium"
+                  >
+                    {newJob.location ? `📍 Location: ${newJob.location.address}` : '📍 Pick Location on Map'}
+                  </button>
                   <button type="submit" className="btn-primary w-full">Post Job</button>
                 </form>
               </div>
@@ -372,6 +464,13 @@ export default function Application() {
                     onChange={(e) => setNewHousing({ ...newHousing, rent: e.target.value })}
                     required
                   />
+                  <button
+                    type="button"
+                    onClick={() => openLocationPicker('housing')}
+                    className="w-full p-2 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-lg border border-blue-300 dark:border-blue-700 hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors text-sm font-medium"
+                  >
+                    {newHousing.location ? `📍 Location: ${newHousing.location.address}` : '📍 Pick Location on Map'}
+                  </button>
                   <button type="submit" className="btn-primary w-full">List Housing</button>
                 </form>
               </div>
@@ -391,6 +490,31 @@ export default function Application() {
             </button>
           </div>
         </div>
+      )}
+      {/* Location Picker Modal */}
+      {showLocationPicker && (
+        <LocationPicker
+          onSelectLocation={handleLocationSelected}
+          onCancel={() => {
+            setShowLocationPicker(false);
+            setLocationPickerMode(null);
+          }}
+          initialLocation={
+            locationPickerMode === 'event' ? newEvent.location :
+            locationPickerMode === 'job' ? newJob.location :
+            locationPickerMode === 'housing' ? newHousing.location : null
+          }
+        />
+      )}
+
+      {/* Contact Modal */}
+      {showContactModal && (
+        <ContactModal
+          resourceType={contactModal.resourceType}
+          resourceId={contactModal.resourceId}
+          onClose={() => setShowContactModal(false)}
+          onSuccess={() => alert('Message sent successfully!')}
+        />
       )}
     </div>
   );

@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function HousingCard({ housing }) {
+export default function HousingCard({ housing, onContact }) {
   return (
     <div className="gig-card group">
       {/* Header with icon */}
@@ -31,7 +31,10 @@ export default function HousingCard({ housing }) {
             ${housing.rent}
             <span className="text-sm font-normal text-hope-gray-500">/mo</span>
           </div>
-          <button className="px-4 py-1.5 bg-accent hover:bg-orange-600 text-white text-sm font-medium rounded-md transition-colors duration-150">
+          <button
+            onClick={() => onContact && onContact(housing._id)}
+            className="px-4 py-1.5 bg-accent hover:bg-orange-600 text-white text-sm font-medium rounded-md transition-colors duration-150"
+          >
             Contact
           </button>
         </div>

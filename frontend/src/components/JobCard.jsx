@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function JobCard({ job }) {
+export default function JobCard({ job, onContact }) {
   return (
     <div className="gig-card group">
       {/* Header with icon */}
@@ -39,8 +39,11 @@ export default function JobCard({ job }) {
           ) : (
             <div className="text-sm text-hope-gray-500">Salary not listed</div>
           )}
-          <button className="px-4 py-1.5 bg-secondary hover:bg-blue-600 text-white text-sm font-medium rounded-md transition-colors duration-150">
-            View Details
+          <button
+            onClick={() => onContact && onContact(job._id)}
+            className="px-4 py-1.5 bg-secondary hover:bg-blue-600 text-white text-sm font-medium rounded-md transition-colors duration-150"
+          >
+            Contact
           </button>
         </div>
       </div>

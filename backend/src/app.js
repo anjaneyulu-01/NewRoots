@@ -10,6 +10,7 @@ import applicationRoutes from './routes/applications.js';
 import housingRoutes from './routes/housing.js';
 import jobRoutes from './routes/jobs.js';
 import earningsRoutes from './routes/earnings.js';
+import contactRoutes from './routes/contact.js';
 
 dotenv.config();
 connectDB();
@@ -29,5 +30,6 @@ app.use('/api/applications', applicationRoutes);
 app.use('/api/housing', housingRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/earnings', earningsRoutes);
+app.use('/api/contact', contactRoutes);
 
 export default app;

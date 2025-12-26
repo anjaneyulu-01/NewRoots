@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import Navbar from '../components/Navbar.jsx';
 import axios from 'axios';
-import { GoogleMap, Marker, useLoadScript } from '@react-google-maps/api';
+import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
 const api = axios.create();
 api.interceptors.request.use((config) => {
@@ -49,21 +51,44 @@ export default function Dashboard() {
   const [incoming, setIncoming] = useState([]);
   const [housing, setHousing] = useState([]);
   const [jobs, setJobs] = useState([]);
-
-  const { isLoaded } = useLoadScript({ googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY });
+  const [mapCenter, setMapCenter] = useState({ lat: 40.7128, lng: -74.006 });
+  const [bounds, setBounds] = useState(null);
+  const [incomingContacts, setIncomingContacts] = useState([]);
+  const [sentMessages, setSentMessages] = useState([]);
+  const [inboxTab, setInboxTab] = useState('received');
+  const [expandedContact, setExpandedContact] = useState(null);
+  const [replyText, setReplyText] = useState('');
+  const [selectedConversation, setSelectedConversation] = useState(null);
 
   useEffect(() => {
     loadDashboardData();
   }, []);
 
+  // Initialize map center using user's geolocation if available
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const { latitude, longitude } = pos.coords;
+          setMapCenter({ lat: latitude, lng: longitude });
+        },
+        () => {
+          // If permission denied or unavailable, keep default center
+        }
+      );
+    }
+  }, []);
+
   const loadDashboardData = async () => {
-    const [earn, myEv, apps, incomingApps, house, job] = await Promise.all([
+    const [earn, myEv, apps, incomingApps, house, job, contacts, sent] = await Promise.all([
       api.get('/api/earnings/me').then((r) => r.data),
       api.get('/api/events/me').then((r) => r.data),
       api.get('/api/applications/me').then((r) => r.data),
       api.get('/api/applications/incoming').then((r) => r.data),
       axios.get('/api/housing').then((r) => r.data),
       axios.get('/api/jobs').then((r) => r.data),
+      api.get('/api/contact/me').then((r) => r.data.messages).catch(() => []),
+      api.get('/api/contact/sent').then((r) => r.data.messages).catch(() => []),
     ]);
     setEarnings(earn);
     setMyEvents(myEv.events);
@@ -72,6 +97,17 @@ export default function Dashboard() {
     setIncoming(incomingApps.applications);
     setHousing(house.housing);
     setJobs(job.jobs);
+    setIncomingContacts(contacts);
+    setSentMessages(sent);
+    // Compute bounds across housing + jobs with coords
+    const points = [];
+    house.housing.forEach(h => { if (h.lat && h.lng) points.push([h.lat, h.lng]); });
+    job.jobs.forEach(j => { if (j.lat && j.lng) points.push([j.lat, j.lng]); });
+    if (points.length) {
+      setBounds(L.latLngBounds(points));
+    } else {
+      setBounds(null);
+    }
   };
 
   const handleApprove = async (application) => {
@@ -84,10 +120,100 @@ export default function Dashboard() {
     setIncoming((prev) => prev.map((x) => (x._id === application._id ? { ...x, status: 'rejected' } : x)));
   };
 
-  const center = { lat: 40.7128, lng: -74.006 };
+  const handleReply = async (contactId) => {
+    if (!replyText.trim()) return;
+    try {
+      const res = await api.post(`/api/contact/${contactId}/reply`, { message: replyText });
+      
+      // Reload messages from server to get the updated state
+      const [contacts, sent] = await Promise.all([
+        api.get('/api/contact/me').then((r) => r.data.messages),
+        api.get('/api/contact/sent').then((r) => r.data.messages)
+      ]);
+      
+      setIncomingContacts(contacts);
+      setSentMessages(sent);
+      setReplyText('');
+      setExpandedContact(null);
+    } catch (err) {
+      console.error('Failed to send reply', err);
+    }
+  };
+
+  const handleNewMessage = async () => {
+    if (!replyText.trim() || !selectedConversation) return;
+    try {
+      // Get the conversation with selected user
+      const allContacts = [...incomingContacts, ...sentMessages];
+      const conversation = allContacts.find(
+        (c) => c.fromUser?._id === selectedConversation || c.toUser?._id === selectedConversation
+      );
+
+      if (conversation) {
+        // Reply to existing conversation
+        handleReply(conversation._id);
+      } else {
+        // This shouldn't happen - user should be in contact list
+        console.error('No conversation found with selected user');
+      }
+    } catch (err) {
+      console.error('Failed to send message', err);
+    }
+  };
+
+  // Mark messages as read when conversation is opened
+  const markMessagesAsRead = async (userId) => {
+    try {
+      const unreadMessages = incomingContacts.filter(
+        (c) => c.fromUser?._id === userId && c.status === 'new'
+      );
+
+      // Mark each unread message as read
+      await Promise.all(
+        unreadMessages.map((msg) => api.post(`/api/contact/${msg._id}/read`))
+      );
+
+      // Update local state
+      setIncomingContacts((prev) =>
+        prev.map((c) =>
+          c.fromUser?._id === userId && c.status === 'new'
+            ? { ...c, status: 'read' }
+            : c
+        )
+      );
+    } catch (err) {
+      console.error('Failed to mark messages as read', err);
+    }
+  };
+
+  // Mark messages as read when conversation is selected
+  useEffect(() => {
+    if (selectedConversation) {
+      markMessagesAsRead(selectedConversation);
+    }
+  }, [selectedConversation]);
+
+  // Fix Leaflet marker icon paths for Vite
+  delete L.Icon.Default.prototype._getIconUrl;
+  L.Icon.Default.mergeOptions({
+    iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+    iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+  });
 
   const pendingApprovals = incoming.filter(a => a.status === 'pending').length;
   const totalApplicants = myEventCounts.reduce((sum, c) => sum + c.applicants, 0);
+
+  // Helper component to fit bounds after data load
+  function FitMarkersBounds({ bounds }) {
+    const map = useMap();
+    useEffect(() => {
+      if (bounds) {
+        map.fitBounds(bounds, { padding: [20, 20] });
+      }
+    }, [bounds, map]);
+    return null;
+  }
 
   return (
     <div className="min-h-screen transition-theme bg-hope-gray-50 dark:bg-hope-gray-900">
@@ -170,6 +296,19 @@ export default function Dashboard() {
                 </span>
               )}
             </button>
+            <button
+              onClick={() => setActiveTab('inbox')}
+              className={activeTab === 'inbox' ? 'tab-active' : 'tab'}
+            >
+              Inbox {(() => {
+                const unreadCount = incomingContacts.filter(c => c.status === 'new').length;
+                return unreadCount > 0 && (
+                  <span className="ml-2 px-2 py-0.5 bg-secondary text-white text-xs rounded-full">
+                    {unreadCount}
+                  </span>
+                );
+              })()}
+            </button>
           </div>
         </div>
 
@@ -219,14 +358,31 @@ export default function Dashboard() {
                     </h3>
                   </div>
                   <div style={{ height: 300 }}>
-                    {isLoaded ? (
-                      <GoogleMap center={center} zoom={11} mapContainerStyle={{ width: '100%', height: '100%' }}>
-                        {housing.map((h) => h.lat && h.lng && <Marker key={`h-${h._id}`} position={{ lat: h.lat, lng: h.lng }} />)}
-                        {jobs.map((j) => j.lat && j.lng && <Marker key={`j-${j._id}`} position={{ lat: j.lat, lng: j.lng }} />)}
-                      </GoogleMap>
-                    ) : (
-                      <div className="flex items-center justify-center h-full">Loading map...</div>
-                    )}
+                    <MapContainer
+                      center={mapCenter}
+                      zoom={12}
+                      zoomControl={true}
+                      zoomSnap={0.5}
+                      zoomDelta={0.5}
+                      scrollWheelZoom={true}
+                      style={{ height: '100%', width: '100%' }}
+                    >
+                      {bounds && <FitMarkersBounds bounds={bounds} />}
+                      <TileLayer
+                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        attribution="© OpenStreetMap contributors"
+                      />
+                      {housing.map((h) => (
+                        h.lat && h.lng ? (
+                          <Marker key={`h-${h._id}`} position={{ lat: h.lat, lng: h.lng }} />
+                        ) : null
+                      ))}
+                      {jobs.map((j) => (
+                        j.lat && j.lng ? (
+                          <Marker key={`j-${j._id}`} position={{ lat: j.lat, lng: j.lng }} />
+                        ) : null
+                      ))}
+                    </MapContainer>
                   </div>
                 </div>
 
@@ -455,6 +611,231 @@ export default function Dashboard() {
                 {incoming.length === 0 && (
                   <div className="p-12 text-center text-hope-gray-500">
                     No pending approvals at this time
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Inbox Tab - WhatsApp Style */}
+          {activeTab === 'inbox' && (
+            <div className="bg-white dark:bg-hope-gray-800 rounded-xl shadow-soft overflow-hidden flex h-[600px]">
+              {/* Conversations List Panel */}
+              <div className="w-72 border-r border-hope-gray-200 dark:border-hope-gray-700 flex flex-col">
+                <div className="p-4 border-b border-hope-gray-200 dark:border-hope-gray-700">
+                  <h2 className="text-lg font-semibold text-hope-gray-900 dark:text-hope-gray-100">💬 Messages</h2>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto">
+                  {incomingContacts.length === 0 && sentMessages.length === 0 ? (
+                    <div className="p-6 text-center text-hope-gray-500">
+                      <p className="text-sm">No conversations yet</p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-hope-gray-100 dark:divide-hope-gray-700">
+                      {(() => {
+                        const conversationMap = new Map();
+                        incomingContacts.forEach((contact) => {
+                          const userId = contact.fromUser?._id;
+                          if (userId) {
+                            if (!conversationMap.has(userId) || new Date(contact.createdAt) > new Date(conversationMap.get(userId).createdAt)) {
+                              conversationMap.set(userId, { user: contact.fromUser, createdAt: contact.createdAt });
+                            }
+                          }
+                        });
+                        sentMessages.forEach((contact) => {
+                          const userId = contact.toUser?._id;
+                          if (userId) {
+                            if (!conversationMap.has(userId) || new Date(contact.createdAt) > new Date(conversationMap.get(userId).createdAt)) {
+                              conversationMap.set(userId, { user: contact.toUser, createdAt: contact.createdAt });
+                            }
+                          }
+                        });
+                        const sorted = Array.from(conversationMap.entries())
+                          .sort((a, b) => new Date(b[1].createdAt) - new Date(a[1].createdAt));
+                        
+                        return sorted.map(([userId, { user }]) => {
+                          // Count unread messages from this user
+                          const unreadCount = incomingContacts.filter(c => 
+                            c.fromUser?._id === userId && c.status === 'new'
+                          ).length;
+                          
+                          return (
+                            <div
+                              key={userId}
+                              onClick={() => setSelectedConversation(userId)}
+                              className={`p-4 cursor-pointer transition-colors ${
+                                selectedConversation === userId
+                                  ? 'bg-primary/10 dark:bg-primary/20'
+                                  : 'hover:bg-hope-gray-50 dark:hover:bg-hope-gray-700'
+                              }`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-secondary/20 to-primary/20 flex items-center justify-center font-semibold text-hope-gray-700 dark:text-hope-gray-300 flex-shrink-0 text-lg relative">
+                                  {user?.name?.charAt(0).toUpperCase()}
+                                  {unreadCount > 0 && (
+                                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-secondary text-white text-xs rounded-full flex items-center justify-center">
+                                      {unreadCount}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <h3 className={`text-sm truncate ${unreadCount > 0 ? 'font-bold text-hope-gray-900 dark:text-hope-gray-100' : 'font-semibold text-hope-gray-900 dark:text-hope-gray-100'}`}>
+                                  {user?.name}
+                                </h3>
+                                <p className="text-xs text-hope-gray-500 dark:text-hope-gray-400 truncate">
+                                  {user?.email}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Chat Panel */}
+              <div className="flex-1 flex flex-col">
+                {selectedConversation ? (
+                  <>
+                    {/* Chat Header */}
+                    <div className="p-4 border-b border-hope-gray-200 dark:border-hope-gray-700 flex items-center gap-3">
+                      {(() => {
+                        const allContacts = [...incomingContacts, ...sentMessages];
+                        const conversation = allContacts.find(
+                          (c) => c.fromUser?._id === selectedConversation || c.toUser?._id === selectedConversation
+                        );
+                        const otherUser = conversation?.fromUser?._id === selectedConversation ? conversation.fromUser : conversation?.toUser;
+                        return (
+                          <>
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-secondary/20 to-primary/20 flex items-center justify-center font-semibold text-hope-gray-700 dark:text-hope-gray-300">
+                              {otherUser?.name?.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <h3 className="font-semibold text-hope-gray-900 dark:text-hope-gray-100">{otherUser?.name}</h3>
+                              <p className="text-xs text-hope-gray-500 dark:text-hope-gray-400">{otherUser?.email}</p>
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </div>
+
+                    {/* Messages Area */}
+                    <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                      {(() => {
+                        const allContacts = [...incomingContacts, ...sentMessages];
+                        const conversation = allContacts
+                          .filter((c) => c.fromUser?._id === selectedConversation || c.toUser?._id === selectedConversation)
+                          .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+                        if (conversation.length === 0) {
+                          return <p className="text-center text-hope-gray-500 mt-8">No messages yet</p>;
+                        }
+
+                        return conversation.map((contact) => {
+                          // If fromUser._id matches selectedConversation, message is FROM other user (left)
+                          // If toUser._id matches selectedConversation, message is TO other user, FROM me (right)
+                          const isFromOtherUser = contact.fromUser?._id === selectedConversation;
+                          return (
+                            <div key={contact._id} className="space-y-2">
+                              {/* Main Message */}
+                              <div className={`flex ${isFromOtherUser ? 'justify-start' : 'justify-end'} gap-2`}>
+                                {isFromOtherUser && (
+                                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-secondary/20 to-primary/20 flex items-center justify-center font-semibold text-hope-gray-700 dark:text-hope-gray-300 text-xs flex-shrink-0">
+                                    {contact.fromUser?.name?.charAt(0).toUpperCase()}
+                                  </div>
+                                )}
+                                <div
+                                  onClick={() => setExpandedContact(contact._id)}
+                                  className={`max-w-xs px-4 py-2 rounded-lg cursor-pointer transition-all ${
+                                    isFromOtherUser
+                                      ? 'bg-hope-gray-100 dark:bg-hope-gray-700 text-hope-gray-900 dark:text-hope-gray-100 hover:bg-hope-gray-200 dark:hover:bg-hope-gray-600'
+                                      : 'bg-primary text-white hover:bg-hope-green-dark'
+                                  } ${expandedContact === contact._id ? 'ring-2 ring-secondary' : ''}`}
+                                >
+                                  <p className="text-sm break-words">{contact.message}</p>
+                                  <p className="text-xs opacity-70 mt-1">
+                                    {new Date(contact.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* Replies */}
+                              {contact.replies && contact.replies.length > 0 && (
+                                <div className="space-y-2">
+                                  {contact.replies.map((reply, idx) => {
+                                    const isReplyFromOther = reply.fromUser?._id === selectedConversation;
+                                    return (
+                                      <div key={idx} className={`flex ${isReplyFromOther ? 'justify-start' : 'justify-end'} gap-2 ml-4`}>
+                                        {isReplyFromOther && (
+                                          <div className="w-5 h-5 rounded-full bg-gradient-to-br from-secondary/20 to-primary/20 flex items-center justify-center font-semibold text-hope-gray-700 dark:text-hope-gray-300 text-xs flex-shrink-0">
+                                            {reply.fromUser?.name?.charAt(0).toUpperCase()}
+                                          </div>
+                                        )}
+                                        <div
+                                          className={`max-w-xs px-3 py-1.5 rounded-lg text-sm ${
+                                            isReplyFromOther
+                                              ? 'bg-hope-gray-100 dark:bg-hope-gray-700 text-hope-gray-900 dark:text-hope-gray-100'
+                                              : 'bg-primary/80 text-white'
+                                          }`}
+                                        >
+                                          <p className="break-words">{reply.message}</p>
+                                          <p className="text-xs opacity-70 mt-0.5">
+                                            {new Date(reply.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+
+                    {/* Reply Input */}
+                    <div className="p-4 border-t border-hope-gray-200 dark:border-hope-gray-700 bg-hope-gray-50 dark:bg-hope-gray-800">
+                      <div className="flex gap-2">
+                        <textarea
+                          value={replyText}
+                          onChange={(e) => setReplyText(e.target.value)}
+                          placeholder="Type a message..."
+                          maxLength={2000}
+                          rows={1}
+                          className="input-fiverr flex-1 text-sm resize-none"
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey && replyText.trim()) {
+                              e.preventDefault();
+                              handleNewMessage();
+                            }
+                          }}
+                        />
+                        <button
+                          onClick={() => {
+                            handleNewMessage();
+                          }}
+                          disabled={!replyText.trim()}
+                          className="px-4 py-2 bg-primary hover:bg-hope-green-dark text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Send
+                        </button>
+                      </div>
+                      {!expandedContact && replyText.trim() && (
+                        <p className="text-xs text-hope-gray-500 mt-2">💬 Press Enter or click Send to reply</p>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex-1 flex items-center justify-center text-hope-gray-500 text-center">
+                    <div>
+                      <p className="text-lg font-medium">Select a conversation to chat</p>
+                      <p className="text-sm">Choose from the list on the left</p>
+                    </div>
                   </div>
                 )}
               </div>
