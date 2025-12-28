@@ -1,13 +1,15 @@
 import React from 'react';
 
-export default function HousingCard({ housing, onContact }) {
+export default function HousingCard({ housing, onContact, onApply }) {
   return (
     <div className="gig-card group">
-      {/* Header with icon */}
-      <div className="relative h-40 bg-gradient-to-br from-accent/10 to-primary/10 overflow-hidden">
-        <div className="absolute inset-0 flex items-center justify-center text-6xl opacity-30">
-          🏠
-        </div>
+      {/* Image/header */}
+      <div className="relative h-32 bg-gradient-to-br from-accent/10 to-primary/10 overflow-hidden">
+        {housing.image ? (
+          <img src={housing.image} alt={housing.title} className="w-full h-full object-cover" />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-5xl opacity-30">🏠</div>
+        )}
       </div>
 
       {/* Content */}
@@ -31,12 +33,20 @@ export default function HousingCard({ housing, onContact }) {
             ${housing.rent}
             <span className="text-sm font-normal text-hope-gray-500">/mo</span>
           </div>
-          <button
-            onClick={() => onContact && onContact(housing._id)}
-            className="px-4 py-1.5 bg-accent hover:bg-orange-600 text-white text-sm font-medium rounded-md transition-colors duration-150"
-          >
-            Contact
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => onApply && onApply(housing._id)}
+              className="px-4 py-1.5 bg-primary hover:bg-hope-green-dark text-white text-sm font-medium rounded-md transition-colors duration-150"
+            >
+              Apply Now
+            </button>
+            <button
+              onClick={() => onContact && onContact(housing._id)}
+              className="px-4 py-1.5 bg-hope-gray-800 hover:bg-hope-gray-900 text-white text-sm font-medium rounded-md transition-colors duration-150 dark:bg-hope-gray-700 dark:hover:bg-hope-gray-600"
+            >
+              Contact
+            </button>
+          </div>
         </div>
       </div>
     </div>

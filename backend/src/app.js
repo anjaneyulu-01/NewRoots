@@ -11,6 +11,8 @@ import housingRoutes from './routes/housing.js';
 import jobRoutes from './routes/jobs.js';
 import earningsRoutes from './routes/earnings.js';
 import contactRoutes from './routes/contact.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 dotenv.config();
 connectDB();
@@ -31,5 +33,10 @@ app.use('/api/housing', housingRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/earnings', earningsRoutes);
 app.use('/api/contact', contactRoutes);
+
+// Serve uploaded images
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 export default app;

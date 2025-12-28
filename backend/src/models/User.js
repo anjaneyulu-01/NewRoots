@@ -10,7 +10,7 @@ const EarningsEntrySchema = new mongoose.Schema({
 
 const UserSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true },
+    name: { type: String, required: true, unique: true, index: true },
     email: { type: String, required: true, unique: true, index: true },
     passwordHash: { type: String, required: true },
     createdEvents: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Event' }],

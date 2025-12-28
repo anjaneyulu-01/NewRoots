@@ -22,15 +22,20 @@ export default function Application() {
   const [jobs, setJobs] = useState([]);
   const [activeTab, setActiveTab] = useState('events');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showApplyModal, setShowApplyModal] = useState(false);
+  const [applyTarget, setApplyTarget] = useState(null); // { type: 'events'|'jobs'|'housing', id }
+  const [applyForm, setApplyForm] = useState({ fullName: '', phone: '', dob: '', details: '', amount: '' });
+  const [applyError, setApplyError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [locationPickerMode, setLocationPickerMode] = useState(null); // 'event', 'job', 'housing'
   const [showContactModal, setShowContactModal] = useState(false);
   const [contactModal, setContactModal] = useState({ resourceType: null, resourceId: null });
 
-  const [newEvent, setNewEvent] = useState({ title: '', description: '', date: '', location: null });
-  const [newJob, setNewJob] = useState({ title: '', description: '', company: '', address: '', pay: '', location: null });
-  const [newHousing, setNewHousing] = useState({ title: '', description: '', address: '', rent: '', location: null });
+  const [newEvent, setNewEvent] = useState({ title: '', description: '', date: '', location: null, imageUrl: '', imageData: '' });
+  const [newJob, setNewJob] = useState({ title: '', description: '', company: '', address: '', pay: '', location: null, imageUrl: '', imageData: '' });
+  const [newHousing, setNewHousing] = useState({ title: '', description: '', address: '', rent: '', location: null, imageUrl: '', imageData: '' });
+  const [createError, setCreateError] = useState('');
   const [createMode, setCreateMode] = useState(null); // 'event', 'job', 'housing', or null
 
   useEffect(() => {
@@ -50,32 +55,40 @@ export default function Application() {
 
   const createEvent = async (e) => {
     e.preventDefault();
-    if (!newEvent.location) {
-      alert('Please pick a location on the map for the event.');
-      return;
-    }
+    setCreateError('');
+    if (!newEvent.title || newEvent.title.trim().length < 3) { setCreateError('Title must be at least 3 characters'); return; }
+    if (!newEvent.date) { setCreateError('Please pick a date for the event'); return; }
+    const eventDate = new Date(newEvent.date);
+    if (Number.isNaN(eventDate.getTime())) { setCreateError('Invalid date'); return; }
+    if (!newEvent.location) { setCreateError('Please pick a location on the map for the event'); return; }
     const payload = {
       title: newEvent.title,
       description: newEvent.description,
-      date: new Date(newEvent.date),
+      date: eventDate,
       location: {
         address: newEvent.location.address,
         lat: newEvent.location.lat,
         lng: newEvent.location.lng,
       },
+      imageUrl: newEvent.imageUrl || undefined,
+      imageData: newEvent.imageData || undefined,
     };
-    const res = await api.post('/api/events', payload);
-    setEvents((prev) => [res.data.event, ...prev]);
-    setNewEvent({ title: '', description: '', date: '' });
-    setShowCreateModal(false);
+    try {
+      const res = await api.post('/api/events', payload);
+      setEvents((prev) => [res.data.event, ...prev]);
+      setNewEvent({ title: '', description: '', date: '' });
+      setShowCreateModal(false);
+    } catch (err) {
+      setCreateError(err.response?.data?.error || 'Failed to create event');
+    }
   };
 
   const createJob = async (e) => {
     e.preventDefault();
-    if (!newJob.location) {
-      alert('Please pick a location on the map for the job.');
-      return;
-    }
+    setCreateError('');
+    if (!newJob.title || newJob.title.trim().length < 3) { setCreateError('Job title must be at least 3 characters'); return; }
+    if (newJob.pay && Number(newJob.pay) < 0) { setCreateError('Pay must be a positive number'); return; }
+    if (!newJob.location) { setCreateError('Please pick a location on the map for the job'); return; }
     const payload = {
       title: newJob.title,
       description: newJob.description,
@@ -84,20 +97,26 @@ export default function Application() {
       lat: newJob.location.lat,
       lng: newJob.location.lng,
       pay: newJob.pay ? Number(newJob.pay) : undefined,
+      imageUrl: newJob.imageUrl || undefined,
+      imageData: newJob.imageData || undefined,
     };
-    const res = await api.post('/api/jobs', payload);
-    setJobs((prev) => [res.data.job, ...prev]);
-    setNewJob({ title: '', description: '', company: '', address: '', pay: '' });
-    setShowCreateModal(false);
-    setCreateMode(null);
+    try {
+      const res = await api.post('/api/jobs', payload);
+      setJobs((prev) => [res.data.job, ...prev]);
+      setNewJob({ title: '', description: '', company: '', address: '', pay: '' });
+      setShowCreateModal(false);
+      setCreateMode(null);
+    } catch (err) {
+      setCreateError(err.response?.data?.error || 'Failed to post job');
+    }
   };
 
   const createHousing = async (e) => {
     e.preventDefault();
-    if (!newHousing.location) {
-      alert('Please pick a location on the map for the housing.');
-      return;
-    }
+    setCreateError('');
+    if (!newHousing.title || newHousing.title.trim().length < 3) { setCreateError('Title must be at least 3 characters'); return; }
+    if (!newHousing.rent || Number(newHousing.rent) < 0) { setCreateError('Rent must be a positive number'); return; }
+    if (!newHousing.location) { setCreateError('Please pick a location on the map for the housing'); return; }
     const payload = {
       title: newHousing.title,
       description: newHousing.description,
@@ -105,20 +124,84 @@ export default function Application() {
       lat: newHousing.location.lat,
       lng: newHousing.location.lng,
       rent: newHousing.rent ? Number(newHousing.rent) : undefined,
+      imageUrl: newHousing.imageUrl || undefined,
+      imageData: newHousing.imageData || undefined,
     };
-    const res = await api.post('/api/housing', payload);
-    setHousing((prev) => [res.data.housing, ...prev]);
-    setNewHousing({ title: '', description: '', address: '', rent: '' });
-    setShowCreateModal(false);
-    setCreateMode(null);
+    try {
+      const res = await api.post('/api/housing', payload);
+      setHousing((prev) => [res.data.housing, ...prev]);
+      setNewHousing({ title: '', description: '', address: '', rent: '' });
+      setShowCreateModal(false);
+      setCreateMode(null);
+    } catch (err) {
+      setCreateError(err.response?.data?.error || 'Failed to list housing');
+    }
   };
 
-  const applyToEvent = async (eventId) => {
+  // File input handlers convert selected file to base64 data URL
+  const fileToDataUrl = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+  const handleEventFile = async (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
     try {
-      await api.post(`/api/events/${eventId}/apply`, { note: '', amount: 0 });
-      alert('Successfully applied to event! Check your dashboard for updates.');
+      const data = await fileToDataUrl(f);
+      setNewEvent((p) => ({ ...p, imageData: data, imageUrl: '' }));
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to apply');
+      console.error(err);
+    }
+  };
+
+  const handleJobFile = async (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    try {
+      const data = await fileToDataUrl(f);
+      setNewJob((p) => ({ ...p, imageData: data, imageUrl: '' }));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleHousingFile = async (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    try {
+      const data = await fileToDataUrl(f);
+      setNewHousing((p) => ({ ...p, imageData: data, imageUrl: '' }));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const openApplyModal = (type, id) => {
+    setApplyTarget({ type, id });
+    setApplyForm({ fullName: '', phone: '', dob: '', details: '', amount: '' });
+    setApplyError('');
+    setShowApplyModal(true);
+  };
+
+  const submitApplication = async (e) => {
+    e.preventDefault();
+    setApplyError('');
+    if (!applyForm.fullName || applyForm.fullName.trim().length < 2) { setApplyError('Full name required'); return; }
+    if (!applyForm.phone || applyForm.phone.trim().length < 6) { setApplyError('Phone number required'); return; }
+    try {
+      const payload = { form: { fullName: applyForm.fullName, phone: applyForm.phone, dob: applyForm.dob, details: applyForm.details }, amount: applyForm.amount ? Number(applyForm.amount) : 0 };
+      // support applying to events, jobs, and housing
+      const targetType = applyTarget?.type || 'events';
+      const targetId = applyTarget?.id || null;
+      if (!targetId) throw new Error('No target selected for application');
+      await api.post(`/api/${targetType}/${targetId}/apply`, payload);
+      setShowApplyModal(false);
+      alert('Application submitted — the event owner will see it in their applications.');
+    } catch (err) {
+      setApplyError(err.response?.data?.error || 'Failed to submit application');
     }
   };
 
@@ -231,7 +314,7 @@ export default function Application() {
                 <EventCard 
                   key={event._id} 
                   event={event} 
-                  onApply={applyToEvent}
+                    onApply={() => openApplyModal(event._id)}
                   onContact={(id) => handleContactClick(id, 'Event')}
                 />
               ))}
@@ -255,6 +338,7 @@ export default function Application() {
                 <JobCard 
                   key={job._id} 
                   job={job}
+                  onApply={() => openApplyModal('jobs', job._id)}
                   onContact={(id) => handleContactClick(id, 'Job')}
                 />
               ))}
@@ -278,6 +362,7 @@ export default function Application() {
                 <HousingCard 
                   key={house._id} 
                   housing={house}
+                  onApply={() => openApplyModal('housing', house._id)}
                   onContact={(id) => handleContactClick(id, 'Housing')}
                 />
               ))}
@@ -376,6 +461,17 @@ export default function Application() {
                     {newEvent.location ? `📍 Location: ${newEvent.location.address}` : '📍 Pick Location on Map'}
                   </button>
                   <button type="submit" className="btn-primary w-full">Create Event</button>
+                  {createError && <div className="text-sm text-red-600 mt-2">{createError}</div>}
+                  <div className="mt-2">
+                    <input className="input-fiverr text-sm" placeholder="Image URL (optional)" value={newEvent.imageUrl} onChange={(e) => setNewEvent({ ...newEvent, imageUrl: e.target.value, imageData: '' })} />
+                    <div className="mt-2">
+                      <label className="text-xs">Or upload image</label>
+                      <input type="file" accept="image/*" onChange={handleEventFile} className="mt-1" />
+                      {(newEvent.imageUrl || newEvent.imageData) && (
+                        <img src={newEvent.imageData || newEvent.imageUrl} alt="preview" className="mt-2 w-40 h-24 object-cover rounded" />
+                      )}
+                    </div>
+                  </div>
                 </form>
               </div>
             )}
@@ -426,6 +522,17 @@ export default function Application() {
                     {newJob.location ? `📍 Location: ${newJob.location.address}` : '📍 Pick Location on Map'}
                   </button>
                   <button type="submit" className="btn-primary w-full">Post Job</button>
+                  {createError && <div className="text-sm text-red-600 mt-2">{createError}</div>}
+                  <div className="mt-2">
+                    <input className="input-fiverr text-sm" placeholder="Image URL (optional)" value={newJob.imageUrl} onChange={(e) => setNewJob({ ...newJob, imageUrl: e.target.value, imageData: '' })} />
+                    <div className="mt-2">
+                      <label className="text-xs">Or upload image</label>
+                      <input type="file" accept="image/*" onChange={handleJobFile} className="mt-1" />
+                      {(newJob.imageUrl || newJob.imageData) && (
+                        <img src={newJob.imageData || newJob.imageUrl} alt="preview" className="mt-2 w-40 h-24 object-cover rounded" />
+                      )}
+                    </div>
+                  </div>
                 </form>
               </div>
             )}
@@ -472,6 +579,17 @@ export default function Application() {
                     {newHousing.location ? `📍 Location: ${newHousing.location.address}` : '📍 Pick Location on Map'}
                   </button>
                   <button type="submit" className="btn-primary w-full">List Housing</button>
+                  {createError && <div className="text-sm text-red-600 mt-2">{createError}</div>}
+                  <div className="mt-2">
+                    <input className="input-fiverr text-sm" placeholder="Image URL (optional)" value={newHousing.imageUrl} onChange={(e) => setNewHousing({ ...newHousing, imageUrl: e.target.value, imageData: '' })} />
+                    <div className="mt-2">
+                      <label className="text-xs">Or upload image</label>
+                      <input type="file" accept="image/*" onChange={handleHousingFile} className="mt-1" />
+                      {(newHousing.imageUrl || newHousing.imageData) && (
+                        <img src={newHousing.imageData || newHousing.imageUrl} alt="preview" className="mt-2 w-40 h-24 object-cover rounded" />
+                      )}
+                    </div>
+                  </div>
                 </form>
               </div>
             )}
@@ -488,6 +606,26 @@ export default function Application() {
             >
               {createMode ? 'Back' : 'Cancel'}
             </button>
+          </div>
+        </div>
+      )}
+      {/* Apply Modal */}
+      {showApplyModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => setShowApplyModal(false)}>
+          <div className="bg-white dark:bg-hope-gray-800 rounded-2xl max-w-md w-full p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold mb-3">Apply to Event</h3>
+            <form onSubmit={submitApplication} className="space-y-3">
+              <input className="input-fiverr" placeholder="Full name" value={applyForm.fullName} onChange={(e) => setApplyForm({ ...applyForm, fullName: e.target.value })} required />
+              <input className="input-fiverr" placeholder="Phone" value={applyForm.phone} onChange={(e) => setApplyForm({ ...applyForm, phone: e.target.value })} required />
+              <input className="input-fiverr" type="date" placeholder="Date of birth (optional)" value={applyForm.dob} onChange={(e) => setApplyForm({ ...applyForm, dob: e.target.value })} />
+              <textarea className="input-fiverr" placeholder="Details / cover note" rows={3} value={applyForm.details} onChange={(e) => setApplyForm({ ...applyForm, details: e.target.value })} />
+              <input className="input-fiverr" placeholder="Offer amount (optional)" type="number" value={applyForm.amount} onChange={(e) => setApplyForm({ ...applyForm, amount: e.target.value })} />
+              {applyError && <div className="text-sm text-red-600">{applyError}</div>}
+              <div className="flex gap-3">
+                <button type="button" onClick={() => setShowApplyModal(false)} className="flex-1 btn-secondary">Cancel</button>
+                <button type="submit" className="flex-1 btn-primary">Submit Application</button>
+              </div>
+            </form>
           </div>
         </div>
       )}

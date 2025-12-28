@@ -1,9 +1,10 @@
 import mongoose from 'mongoose';
 
 const connectDB = async () => {
-  const uri = process.env.MONGO_URI;
+  // Support multiple env names: prefer MONGO_URI, then MONGO_ATLAS, then MONGO_LOCAL
+  const uri = process.env.MONGO_URI || process.env.MONGO_ATLAS || process.env.MONGO_LOCAL;
   if (!uri) {
-    console.error('MONGO_URI not set');
+    console.error('MONGO_URI (or MONGO_ATLAS / MONGO_LOCAL) not set');
     process.exit(1);
   }
   try {

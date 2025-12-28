@@ -1,13 +1,15 @@
 import React from 'react';
 
-export default function JobCard({ job, onContact }) {
+export default function JobCard({ job, onContact, onApply }) {
   return (
     <div className="gig-card group">
-      {/* Header with icon */}
+      {/* Image/header */}
       <div className="relative h-32 bg-gradient-to-br from-secondary/10 to-accent/10 overflow-hidden">
-        <div className="absolute inset-0 flex items-center justify-center text-5xl opacity-30">
-          💼
-        </div>
+        {job.image ? (
+          <img src={job.image} alt={job.title} className="w-full h-full object-cover" />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-5xl opacity-30">💼</div>
+        )}
       </div>
 
       {/* Content */}
@@ -39,12 +41,20 @@ export default function JobCard({ job, onContact }) {
           ) : (
             <div className="text-sm text-hope-gray-500">Salary not listed</div>
           )}
-          <button
-            onClick={() => onContact && onContact(job._id)}
-            className="px-4 py-1.5 bg-secondary hover:bg-blue-600 text-white text-sm font-medium rounded-md transition-colors duration-150"
-          >
-            Contact
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => onApply && onApply(job._id)}
+              className="px-4 py-1.5 bg-primary hover:bg-hope-green-dark text-white text-sm font-medium rounded-md transition-colors duration-150"
+            >
+              Apply Now
+            </button>
+            <button
+              onClick={() => onContact && onContact(job._id)}
+              className="px-4 py-1.5 bg-hope-gray-800 hover:bg-hope-gray-900 text-white text-sm font-medium rounded-md transition-colors duration-150 dark:bg-hope-gray-700 dark:hover:bg-hope-gray-600"
+            >
+              Contact
+            </button>
+          </div>
         </div>
       </div>
     </div>

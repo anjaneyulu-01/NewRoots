@@ -11,11 +11,13 @@ export default function EventCard({ event, onApply, onContact }) {
 
   return (
     <div className="gig-card group">
-      {/* Image Placeholder */}
+      {/* Image */}
       <div className="relative h-48 bg-gradient-to-br from-primary/10 to-secondary/10 overflow-hidden">
-        <div className="absolute inset-0 flex items-center justify-center text-6xl opacity-30">
-          🎉
-        </div>
+        {event.image ? (
+          <img src={event.image} alt={event.title} className="w-full h-full object-cover" />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-6xl opacity-30">🎉</div>
+        )}
         {event.status && (
           <div className="absolute top-3 right-3">
             <span className={`badge ${event.status === 'upcoming' ? 'badge-info' : 'badge-success'}`}>

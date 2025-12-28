@@ -7,10 +7,22 @@ export default function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
 
   const onSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setFieldErrors({});
+    // client-side validation
+    const errs = {};
+    if (!name || name.trim().length < 2) errs.name = 'Name must be at least 2 characters';
+    const emailRe = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+    if (!email || !emailRe.test(email)) errs.email = 'Enter a valid email address';
+    if (!password || password.length < 8) errs.password = 'Password must be at least 8 characters';
+    if (Object.keys(errs).length) {
+      setFieldErrors(errs);
+      return;
+    }
     try {
       const res = await axios.post('/api/auth/register', { name, email, password });
       localStorage.setItem('token', res.data.token);
@@ -90,6 +102,7 @@ export default function Register() {
                 onChange={(e) => setName(e.target.value)}
                 required
               />
+              {fieldErrors.name && <div className="text-xs text-red-600 mt-1">{fieldErrors.name}</div>}
             </div>
 
             <div>
@@ -104,6 +117,7 @@ export default function Register() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
               />
+              {fieldErrors.email && <div className="text-xs text-red-600 mt-1">{fieldErrors.email}</div>}
             </div>
 
             <div>
@@ -121,6 +135,7 @@ export default function Register() {
               <p className="mt-1 text-xs text-hope-gray-500">
                 Must be at least 8 characters
               </p>
+              {fieldErrors.password && <div className="text-xs text-red-600 mt-1">{fieldErrors.password}</div>}
             </div>
 
             <button type="submit" className="w-full btn-primary py-3 text-base">

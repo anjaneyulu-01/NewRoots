@@ -17,10 +17,20 @@ router.post('/register', async (req, res) => {
   const { error, value } = registerSchema.validate(req.body);
   if (error) return res.status(400).json({ error: error.message });
   const { name, email, password } = value;
-  const existing = await User.findOne({ email });
-  if (existing) return res.status(409).json({ error: 'Email already in use' });
+  // check for duplicate email or name
+  const existingEmail = await User.findOne({ email });
+  if (existingEmail) return res.status(409).json({ error: 'Email already in use' });
+  const existingName = await User.findOne({ name });
+  if (existingName) return res.status(409).json({ error: 'Name already in use' });
   const passwordHash = await bcrypt.hash(password, 10);
-  const user = await User.create({ name, email, passwordHash });
+  let user;
+  try {
+    user = await User.create({ name, email, passwordHash });
+  } catch (err) {
+    // handle race-condition duplicate key errors gracefully
+    if (err.code === 11000) return res.status(409).json({ error: 'Email or name already in use' });
+    throw err;
+  }
   const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
   res.status(201).json({ token, user: { id: user._id, name: user.name, email: user.email } });
 });

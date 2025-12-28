@@ -49,6 +49,8 @@ export default function Dashboard() {
   const [myEventCounts, setMyEventCounts] = useState([]);
   const [myApplications, setMyApplications] = useState([]);
   const [incoming, setIncoming] = useState([]);
+  const [myJobs, setMyJobs] = useState([]);
+  const [myHousing, setMyHousing] = useState([]);
   const [housing, setHousing] = useState([]);
   const [jobs, setJobs] = useState([]);
   const [mapCenter, setMapCenter] = useState({ lat: 40.7128, lng: -74.006 });
@@ -58,56 +60,151 @@ export default function Dashboard() {
   const [inboxTab, setInboxTab] = useState('received');
   const [expandedContact, setExpandedContact] = useState(null);
   const [replyText, setReplyText] = useState('');
+  const [showCreateEvent, setShowCreateEvent] = useState(false);
+  const [newEventData, setNewEventData] = useState({ title: '', description: '', date: '', location: { address: '' }, imageUrl: '', imageData: '' });
+  const [createEventError, setCreateEventError] = useState('');
   const [selectedConversation, setSelectedConversation] = useState(null);
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
+  const loadDashboardData = async (force = false) => {
+    let earnData = { totals: { total: 0, paid: 0, pending: 0 }, perEvent: [] };
+    let myEvData = { events: [], counts: [] };
+    let appsData = { applications: [] };
+    let incomingAppsData = { applications: [] };
+    let houseData = { housing: [] };
+    let jobData = { jobs: [] };
+    let myJData = { jobs: [] };
+    let myHData = { housing: [] };
+    let contacts = [];
+    let sent = [];
 
-  // Initialize map center using user's geolocation if available
-  useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const { latitude, longitude } = pos.coords;
-          setMapCenter({ lat: latitude, lng: longitude });
-        },
-        () => {
-          // If permission denied or unavailable, keep default center
-        }
-      );
+    try {
+      const earn = await api.get('/api/earnings/me').then((r) => r.data).catch(() => null);
+      const myEv = await api.get('/api/events/me', { params: force ? { t: Date.now() } : {} }).then((r) => r.data).catch(() => null);
+      const apps = await api.get('/api/applications/me').then((r) => r.data).catch(() => null);
+      const incomingApps = await api.get('/api/applications/incoming').then((r) => r.data).catch(() => null);
+      const house = await axios.get('/api/housing').then((r) => r.data).catch(() => null);
+      const job = await axios.get('/api/jobs').then((r) => r.data).catch(() => null);
+      const myJ = await api.get('/api/jobs/me', { params: force ? { t: Date.now() } : {} }).then((r) => r.data).catch(() => null);
+      const myH = await api.get('/api/housing/me', { params: force ? { t: Date.now() } : {} }).then((r) => r.data).catch(() => null);
+      contacts = await api.get('/api/contact/me').then((r) => r.data.messages).catch(() => []);
+      sent = await api.get('/api/contact/sent').then((r) => r.data.messages).catch(() => []);
+
+      if (earn) earnData = earn;
+      if (myEv) myEvData = myEv;
+      if (apps) appsData = apps;
+      if (incomingApps) incomingAppsData = incomingApps;
+      if (house) houseData = house;
+      if (job) jobData = job;
+      if (myJ) myJData = myJ;
+      if (myH) myHData = myH;
+    } catch (err) {
+      console.error('Failed to load dashboard data', err);
     }
-  }, []);
 
-  const loadDashboardData = async () => {
-    const [earn, myEv, apps, incomingApps, house, job, contacts, sent] = await Promise.all([
-      api.get('/api/earnings/me').then((r) => r.data),
-      api.get('/api/events/me').then((r) => r.data),
-      api.get('/api/applications/me').then((r) => r.data),
-      api.get('/api/applications/incoming').then((r) => r.data),
-      axios.get('/api/housing').then((r) => r.data),
-      axios.get('/api/jobs').then((r) => r.data),
-      api.get('/api/contact/me').then((r) => r.data.messages).catch(() => []),
-      api.get('/api/contact/sent').then((r) => r.data.messages).catch(() => []),
-    ]);
-    setEarnings(earn);
-    setMyEvents(myEv.events);
-    setMyEventCounts(myEv.counts);
-    setMyApplications(apps.applications);
-    setIncoming(incomingApps.applications);
-    setHousing(house.housing);
-    setJobs(job.jobs);
+    setEarnings(earnData);
+    setMyEvents(myEvData.events || []);
+    setMyEventCounts(myEvData.counts || []);
+    setMyApplications(appsData.applications || []);
+    setIncoming(incomingAppsData.applications || []);
+    setHousing(houseData.housing || []);
+    setJobs(jobData.jobs || []);
+    setMyJobs(myJData.jobs || []);
+    setMyHousing(myHData.housing || []);
     setIncomingContacts(contacts);
     setSentMessages(sent);
+
     // Compute bounds across housing + jobs with coords
     const points = [];
-    house.housing.forEach(h => { if (h.lat && h.lng) points.push([h.lat, h.lng]); });
-    job.jobs.forEach(j => { if (j.lat && j.lng) points.push([j.lat, j.lng]); });
-    if (points.length) {
-      setBounds(L.latLngBounds(points));
-    } else {
-      setBounds(null);
+    (houseData.housing || []).forEach(h => { if (h.lat && h.lng) points.push([h.lat, h.lng]); });
+    (jobData.jobs || []).forEach(j => { if (j.lat && j.lng) points.push([j.lat, j.lng]); });
+    if (points.length) setBounds(L.latLngBounds(points)); else setBounds(null);
+  };
+
+  useEffect(() => { loadDashboardData(); }, []);
+
+  // Edit/Delete handlers
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingType, setEditingType] = useState(null); // 'event' | 'job' | 'housing'
+  const [editingItem, setEditingItem] = useState(null);
+  const [editData, setEditData] = useState({});
+
+  const openEdit = (type, item) => {
+    setEditingType(type);
+    setEditingItem(item);
+    setEditData({ ...item });
+    setShowEditModal(true);
+  };
+
+  const submitEdit = async () => {
+    if (!editingItem) return;
+    try {
+      const urlBase = editingType === 'event' ? '/api/events' : editingType === 'job' ? '/api/jobs' : '/api/housing';
+      // Normalize payload to match backend Joi schemas:
+      const payload = { ...editData };
+      if (editingType === 'event') {
+        // backend expects `location.address`, not top-level `address`
+        if (payload.address && (!payload.location || !payload.location.address)) {
+          payload.location = { ...(payload.location || {}), address: payload.address };
+        }
+        delete payload.address;
+      } else {
+        // jobs/housing expect top-level `address`; move from location.address if present
+        if (payload.location && payload.location.address) {
+          payload.address = payload.location.address;
+        }
+        delete payload.location;
+      }
+      const res = await api.put(`${urlBase}/${editingItem._id}`, payload).catch(async (e) => { throw e; });
+      // update local state immediately using returned object when possible
+      const data = res.data || {};
+      if (editingType === 'event' && data.event) {
+        const updated = { ...data.event, image: data.event.image ? `${data.event.image}?t=${Date.now()}` : data.event.image };
+        setMyEvents((prev) => prev.map((x) => (x._id === data.event._id ? updated : x)));
+      } else if (editingType === 'job' && data.job) {
+        const updated = { ...data.job, image: data.job.image ? `${data.job.image}?t=${Date.now()}` : data.job.image };
+        setMyJobs((prev) => prev.map((x) => (x._id === data.job._id ? updated : x)));
+      } else if (editingType === 'housing' && data.housing) {
+        const updated = { ...data.housing, image: data.housing.image ? `${data.housing.image}?t=${Date.now()}` : data.housing.image };
+        setMyHousing((prev) => prev.map((x) => (x._id === data.housing._id ? updated : x)));
+      } else {
+        // fallback to full reload (force bypass cache)
+        await loadDashboardData(true);
+      }
+      // always refresh to ensure image URLs are up-to-date
+      await loadDashboardData(true);
+      setShowEditModal(false);
+    } catch (err) {
+      console.error('Edit failed', err);
+      const msg = err.response?.data?.error || (err.response?.data ? JSON.stringify(err.response.data) : err.message) || 'Update failed';
+      alert(msg);
     }
+  };
+
+  const deleteEvent = async (id) => {
+    if (!confirm('Delete this event? This will remove all applications.')) return;
+    await api.delete(`/api/events/${id}`);
+    loadDashboardData();
+  };
+
+  const deleteJob = async (id) => {
+    if (!confirm('Delete this job?')) return;
+    await api.delete(`/api/jobs/${id}`);
+    loadDashboardData();
+  };
+
+  const deleteHousing = async (id) => {
+    if (!confirm('Delete this listing?')) return;
+    await api.delete(`/api/housing/${id}`);
+    loadDashboardData();
+  };
+
+  // file upload handler for edit modal
+  const handleEditFile = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setEditData((p) => ({ ...p, imageData: reader.result, imageUrl: '' }));
+    reader.readAsDataURL(file);
   };
 
   const handleApprove = async (application) => {
@@ -214,6 +311,52 @@ export default function Dashboard() {
     }, [bounds, map]);
     return null;
   }
+
+  // Create event helpers
+  const handleEventFileChange = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setNewEventData((prev) => ({ ...prev, imageData: reader.result }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const createEvent = async () => {
+    setCreateEventError('');
+    if (!newEventData.title || newEventData.title.trim().length < 3) {
+      setCreateEventError('Title must be at least 3 characters');
+      return;
+    }
+    if (!newEventData.date) {
+      setCreateEventError('Please provide a date');
+      return;
+    }
+    const d = new Date(newEventData.date);
+    if (Number.isNaN(d.getTime())) { setCreateEventError('Invalid date'); return; }
+    if (!newEventData.location || !newEventData.location.address) {
+      setCreateEventError('Please provide an address or pick a location');
+      return;
+    }
+    try {
+      const payload = {
+        title: newEventData.title,
+        description: newEventData.description,
+        date: newEventData.date,
+        location: { address: newEventData.location.address },
+        imageUrl: newEventData.imageUrl || undefined,
+        imageData: newEventData.imageData || undefined,
+      };
+      const res = await api.post('/api/events', payload);
+      setShowCreateEvent(false);
+      setNewEventData({ title: '', description: '', date: '', location: { address: '' }, imageUrl: '', imageData: '' });
+      loadDashboardData();
+    } catch (err) {
+      console.error('Create event failed', err);
+      setCreateEventError(err.response?.data?.error || 'Failed to create event');
+    }
+  };
 
   return (
     <div className="min-h-screen transition-theme bg-hope-gray-50 dark:bg-hope-gray-900">
@@ -448,19 +591,53 @@ export default function Dashboard() {
           {/* My Events Tab */}
           {activeTab === 'my-events' && (
             <div className="bg-white dark:bg-hope-gray-800 rounded-xl shadow-soft overflow-hidden">
-              <div className="p-6 border-b border-hope-gray-200 dark:border-hope-gray-700">
+              <div className="p-6 border-b border-hope-gray-200 dark:border-hope-gray-700 flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-hope-gray-900 dark:text-hope-gray-100">
                   My Events
                 </h2>
+                <div>
+                  <button
+                    onClick={() => setShowCreateEvent(true)}
+                    className="px-3 py-1 bg-primary text-white text-sm rounded-md"
+                  >
+                    New Event
+                  </button>
+                </div>
               </div>
+
+              {showCreateEvent && (
+                <div className="p-4 border-b bg-hope-gray-50 dark:bg-hope-gray-900">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <input className="input-fiverr" placeholder="Title" value={newEventData.title} onChange={(e) => setNewEventData((p) => ({ ...p, title: e.target.value }))} />
+                    <input type="date" className="input-fiverr" value={newEventData.date} onChange={(e) => setNewEventData((p) => ({ ...p, date: e.target.value }))} />
+                    <input className="input-fiverr col-span-2" placeholder="Address" value={newEventData.location.address} onChange={(e) => setNewEventData((p) => ({ ...p, location: { ...p.location, address: e.target.value } }))} />
+                    <textarea className="input-fiverr col-span-2" placeholder="Description" value={newEventData.description} onChange={(e) => setNewEventData((p) => ({ ...p, description: e.target.value }))} />
+                    <input className="input-fiverr" placeholder="Image URL" value={newEventData.imageUrl} onChange={(e) => setNewEventData((p) => ({ ...p, imageUrl: e.target.value }))} />
+                    <div>
+                      <label className="text-xs">Or upload an image</label>
+                      <input type="file" accept="image/*" onChange={handleEventFileChange} className="mt-1" />
+                      {(newEventData.imageUrl || newEventData.imageData) && (
+                        <img src={newEventData.imageData || newEventData.imageUrl} alt="preview" className="mt-2 w-40 h-24 object-cover rounded" />
+                      )}
+                    </div>
+                  </div>
+                  <div className="mt-3 flex gap-2">
+                    <button onClick={createEvent} className="px-4 py-2 bg-primary text-white rounded">Create</button>
+                    <button onClick={() => setShowCreateEvent(false)} className="px-4 py-2 bg-hope-gray-200 rounded">Cancel</button>
+                      {createEventError && <div className="text-sm text-red-600 mt-2">{createEventError}</div>}
+                  </div>
+                </div>
+              )}
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-hope-gray-50 dark:bg-hope-gray-700">
                     <tr>
+                      <th className="text-left p-4 text-sm font-semibold text-hope-gray-700 dark:text-hope-gray-300">Image</th>
                       <th className="text-left p-4 text-sm font-semibold text-hope-gray-700 dark:text-hope-gray-300">Title</th>
                       <th className="text-left p-4 text-sm font-semibold text-hope-gray-700 dark:text-hope-gray-300">Date</th>
                       <th className="text-center p-4 text-sm font-semibold text-hope-gray-700 dark:text-hope-gray-300">Applicants</th>
-                      <th className="text-center p-4 text-sm font-semibold text-hope-gray-700 dark:text-hope-gray-300">Status</th>
+                        <th className="text-center p-4 text-sm font-semibold text-hope-gray-700 dark:text-hope-gray-300">Status</th>
+                        <th className="text-center p-4 text-sm font-semibold text-hope-gray-700 dark:text-hope-gray-300">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-hope-gray-100 dark:divide-hope-gray-700">
@@ -468,6 +645,13 @@ export default function Dashboard() {
                       const count = myEventCounts.find((c) => c.eventId === ev._id)?.applicants || 0;
                       return (
                         <tr key={ev._id} className="hover-row">
+                          <td className="p-4">
+                            {ev.image ? (
+                              <img src={ev.image} alt={ev.title} className="w-20 h-12 object-cover rounded" />
+                            ) : (
+                              <div className="w-20 h-12 bg-hope-gray-100 dark:bg-hope-gray-700 rounded flex items-center justify-center">🎉</div>
+                            )}
+                          </td>
                           <td className="p-4 font-medium text-hope-gray-900 dark:text-hope-gray-100">{ev.title}</td>
                           <td className="p-4 text-hope-gray-600 dark:text-hope-gray-400">{new Date(ev.date).toLocaleDateString()}</td>
                           <td className="p-4 text-center">
@@ -480,9 +664,97 @@ export default function Dashboard() {
                               {ev.status}
                             </span>
                           </td>
+                          <td className="p-4 text-center">
+                            <div className="flex items-center justify-center gap-2">
+                              <button onClick={() => openEdit('event', ev)} className="px-3 py-1 bg-hope-gray-200 rounded">Edit</button>
+                              <button onClick={() => deleteEvent(ev._id)} className="px-3 py-1 bg-red-500 text-white rounded">Delete</button>
+                            </div>
+                          </td>
                         </tr>
                       );
                     })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* My Jobs Tab */}
+          {activeTab === 'my-jobs' && (
+            <div className="bg-white dark:bg-hope-gray-800 rounded-xl shadow-soft overflow-hidden">
+              <div className="p-6 border-b border-hope-gray-200 dark:border-hope-gray-700 flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-hope-gray-900 dark:text-hope-gray-100">My Jobs</h2>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-hope-gray-50 dark:bg-hope-gray-700">
+                    <tr>
+                      <th className="text-left p-4 text-sm font-semibold">Title</th>
+                      <th className="text-left p-4 text-sm font-semibold">Company</th>
+                      <th className="text-left p-4 text-sm font-semibold">Address</th>
+                      <th className="text-center p-4 text-sm font-semibold">Pay</th>
+                      <th className="text-center p-4 text-sm font-semibold">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-hope-gray-100 dark:divide-hope-gray-700">
+                    {myJobs.map((j) => (
+                      <tr key={j._id} className="hover-row">
+                        <td className="p-4 font-medium">{j.title}</td>
+                        <td className="p-4">{j.company}</td>
+                        <td className="p-4">{j.address}</td>
+                        <td className="p-4 text-center">{j.pay ? `$${j.pay}` : '—'}</td>
+                        <td className="p-4 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <button onClick={() => openEdit('job', j)} className="px-3 py-1 bg-hope-gray-200 rounded">Edit</button>
+                            <button onClick={() => deleteJob(j._id)} className="px-3 py-1 bg-red-500 text-white rounded">Delete</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* My Housing Tab */}
+          {activeTab === 'my-housing' && (
+            <div className="bg-white dark:bg-hope-gray-800 rounded-xl shadow-soft overflow-hidden">
+              <div className="p-6 border-b border-hope-gray-200 dark:border-hope-gray-700 flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-hope-gray-900 dark:text-hope-gray-100">My Housing</h2>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-hope-gray-50 dark:bg-hope-gray-700">
+                    <tr>
+                      <th className="text-left p-4 text-sm font-semibold">Title</th>
+                      <th className="text-left p-4 text-sm font-semibold">Image</th>
+                      <th className="text-left p-4 text-sm font-semibold">Address</th>
+                      <th className="text-center p-4 text-sm font-semibold">Rent</th>
+                      <th className="text-center p-4 text-sm font-semibold">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-hope-gray-100 dark:divide-hope-gray-700">
+                    {myHousing.map((h) => (
+                      <tr key={h._id} className="hover-row">
+                        <td className="p-4 font-medium">{h.title}</td>
+                        <td className="p-4">
+                          {h.image ? (
+                            <img src={h.image} alt={h.title} className="w-24 h-14 object-cover rounded" />
+                          ) : (
+                            <div className="w-24 h-14 bg-hope-gray-100 dark:bg-hope-gray-700 flex items-center justify-center">🏠</div>
+                          )}
+                        </td>
+                        <td className="p-4">{h.address}</td>
+                        <td className="p-4 text-center">${h.rent}</td>
+                        <td className="p-4 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <button onClick={() => openEdit('housing', h)} className="px-3 py-1 bg-hope-gray-200 rounded">Edit</button>
+                            <button onClick={() => deleteHousing(h._id)} className="px-3 py-1 bg-red-500 text-white rounded">Delete</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -842,6 +1114,88 @@ export default function Dashboard() {
             </div>
           )}
         </div>
+
+        {/* Edit Modal */}
+        {showEditModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/40" onClick={() => setShowEditModal(false)} />
+            <div className="relative bg-white dark:bg-hope-gray-800 rounded-lg shadow-lg p-6 w-full max-w-2xl z-10">
+              <h3 className="text-lg font-semibold text-hope-gray-900 dark:text-hope-gray-100 mb-4">Edit {editingType}</h3>
+              <div className="space-y-3">
+                <input
+                  className="w-full input-fiverr"
+                  placeholder="Title"
+                  value={editData.title || ''}
+                  onChange={(e) => setEditData((p) => ({ ...p, title: e.target.value }))}
+                />
+
+                <textarea
+                  className="w-full input-fiverr h-24"
+                  placeholder="Description"
+                  value={editData.description || ''}
+                  onChange={(e) => setEditData((p) => ({ ...p, description: e.target.value }))}
+                />
+
+                {editingType === 'event' && (
+                  <input
+                    type="date"
+                    className="input-fiverr"
+                    value={editData.date ? editData.date.split('T')[0] : ''}
+                    onChange={(e) => setEditData((p) => ({ ...p, date: e.target.value }))}
+                  />
+                )}
+
+                {(editingType === 'job' || editingType === 'housing') && (
+                  <input
+                    className="input-fiverr"
+                    placeholder={editingType === 'job' ? 'Company' : 'Address'}
+                    value={editingType === 'job' ? (editData.company || '') : (editData.address || editData.location?.address || '')}
+                    onChange={(e) => {
+                      if (editingType === 'job') setEditData((p) => ({ ...p, company: e.target.value }));
+                      else setEditData((p) => ({ ...p, location: { ...(p.location || {}), address: e.target.value }, address: e.target.value }));
+                    }}
+                  />
+                )}
+
+                {editingType === 'job' && (
+                  <input
+                    className="input-fiverr"
+                    placeholder="Pay"
+                    value={editData.pay || ''}
+                    onChange={(e) => setEditData((p) => ({ ...p, pay: e.target.value }))}
+                  />
+                )}
+
+                {editingType === 'housing' && (
+                  <input
+                    className="input-fiverr"
+                    placeholder="Rent"
+                    value={editData.rent || ''}
+                    onChange={(e) => setEditData((p) => ({ ...p, rent: e.target.value }))}
+                  />
+                )}
+
+                <input
+                  className="input-fiverr"
+                  placeholder="Image URL"
+                  value={editData.imageUrl || ''}
+                  onChange={(e) => setEditData((p) => ({ ...p, imageUrl: e.target.value, imageData: '' }))}
+                />
+
+                <div>
+                  <label className="text-sm text-hope-gray-600">Or upload image</label>
+                  <input type="file" accept="image/*" onChange={handleEditFile} className="mt-1" />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-3">
+                  <button onClick={() => setShowEditModal(false)} className="px-4 py-2 bg-hope-gray-200 rounded">Cancel</button>
+                  <button onClick={submitEdit} className="px-4 py-2 bg-primary text-white rounded">Save</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
       </main>
     </div>
   );

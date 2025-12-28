@@ -4,28 +4,62 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireEventOwner } from '../middleware/ownership.js';
 import Event from '../models/Event.js';
 import Application from '../models/Application.js';
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const router = express.Router();
+
+async function saveBase64Image(base64) {
+  const match = base64.match(/^data:(image\/\w+);base64,(.+)$/);
+  if (!match) return null;
+  const ext = match[1].split('/')[1] || 'png';
+  const data = match[2];
+  const filename = `${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+  const uploadsDir = path.join(__dirname, '..', 'uploads');
+  const filepath = path.join(uploadsDir, filename);
+  // ensure uploads directory exists
+  await fs.mkdir(uploadsDir, { recursive: true });
+  await fs.writeFile(filepath, Buffer.from(data, 'base64'));
+  return `/uploads/${filename}`;
+}
 
 const eventSchema = Joi.object({
   title: Joi.string().min(3).required(),
   description: Joi.string().allow(''),
   date: Joi.date().required(),
-  location: Joi.object({ address: Joi.string().allow(''), lat: Joi.number(), lng: Joi.number() }),
-});
+  // allow extra fields inside location (e.g. _id) when frontend sends full object
+  location: Joi.object({ address: Joi.string().allow(''), lat: Joi.number(), lng: Joi.number() }).unknown(true),
+}).unknown(true);
 
 router.post('/', requireAuth, async (req, res) => {
   const { error, value } = eventSchema.validate(req.body);
   if (error) return res.status(400).json({ error: error.message });
-  const event = await Event.create({ ...value, createdBy: req.user.id });
+  let image = req.body.imageUrl || undefined;
+  if (!image && req.body.imageData) {
+    try {
+      image = await saveBase64Image(req.body.imageData);
+    } catch (e) {
+      console.error('image save failed', e);
+    }
+  }
+  const event = await Event.create({ ...value, image, createdBy: req.user.id });
   res.status(201).json({ event });
 });
 
 router.get('/', async (req, res) => {
   const { q } = req.query;
   const filter = q ? { title: new RegExp(q, 'i') } : {};
-  const events = await Event.find(filter).sort({ date: 1 }).limit(200);
-  res.json({ events });
+  const events = await Event.find(filter).sort({ date: 1 }).limit(200).populate('createdBy', 'name email');
+  // normalize to include `creator` for frontend convenience
+  const out = events.map((e) => {
+    const obj = e.toObject();
+    obj.creator = obj.createdBy || null;
+    return obj;
+  });
+  res.json({ events: out });
 });
 
 router.get('/me', requireAuth, async (req, res) => {
@@ -39,6 +73,27 @@ router.get('/me', requireAuth, async (req, res) => {
   res.json({ events, counts });
 });
 
+// Update event (owner only)
+router.put('/:id', requireAuth, requireEventOwner, async (req, res) => {
+  const { error, value } = eventSchema.validate(req.body);
+  if (error) return res.status(400).json({ error: error.message });
+  let image = req.body.imageUrl || req.event.image;
+  if (!image && req.body.imageData) {
+    try { image = await saveBase64Image(req.body.imageData); } catch (e) { console.error('image save failed', e); }
+  }
+  Object.assign(req.event, { ...value, image });
+  await req.event.save();
+  res.json({ event: req.event });
+});
+
+// Delete event (owner only)
+router.delete('/:id', requireAuth, requireEventOwner, async (req, res) => {
+  // remove related applications
+  await Application.deleteMany({ event: req.params.id });
+  await req.event.remove();
+  res.json({ success: true });
+});
+
 // Applications for a specific event (owner only)
 router.get('/:id/applications', requireAuth, requireEventOwner, async (req, res) => {
   const apps = await Application.find({ event: req.params.id }).populate('applicant', 'name email');
@@ -46,9 +101,15 @@ router.get('/:id/applications', requireAuth, requireEventOwner, async (req, res)
 });
 
 const applySchema = Joi.object({
-  note: Joi.string().allow(''),
   amount: Joi.number().min(0).default(0),
-});
+  // flexible form object containing applicant details
+  form: Joi.object({
+    fullName: Joi.string().min(2).required(),
+    phone: Joi.string().min(6).required(),
+    dob: Joi.string().allow(''),
+    details: Joi.string().allow(''),
+  }).required().unknown(true),
+}).unknown(true);
 
 router.post('/:id/apply', requireAuth, async (req, res) => {
   const { error, value } = applySchema.validate(req.body);
@@ -56,7 +117,7 @@ router.post('/:id/apply', requireAuth, async (req, res) => {
   // Prevent duplicate application
   const existing = await Application.findOne({ event: req.params.id, applicant: req.user.id });
   if (existing) return res.status(409).json({ error: 'Already applied' });
-  const app = await Application.create({ event: req.params.id, applicant: req.user.id, ...value });
+  const app = await Application.create({ event: req.params.id, applicant: req.user.id, amount: value.amount, form: value.form });
   res.status(201).json({ application: app });
 });
 

@@ -6,10 +6,15 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [fieldError, setFieldError] = useState('');
 
   const onSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setFieldError('');
+    const emailRe = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+    if (!email || !emailRe.test(email)) { setFieldError('Enter a valid email'); return; }
+    if (!password || password.length < 6) { setFieldError('Password must be at least 6 characters'); return; }
     try {
       const res = await axios.post('/api/auth/login', { email, password });
       localStorage.setItem('token', res.data.token);
@@ -89,6 +94,7 @@ export default function Login() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
               />
+              {fieldError && <div className="text-xs text-red-600 mt-1">{fieldError}</div>}
             </div>
 
             <div>
