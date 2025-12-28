@@ -6,5 +6,5 @@ dotenv.config();
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log(`HOPE backend listening on port ${PORT}`);
+  console.log(`NewRoots backend listening on port ${PORT}`);
 });

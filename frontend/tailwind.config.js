@@ -5,7 +5,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Fiverr-inspired HOPE branding
+        // Fiverr-inspired NewRoots branding
         hope: {
           green: '#1dbf73', // Primary success/action color
           'green-dark': '#19a463',

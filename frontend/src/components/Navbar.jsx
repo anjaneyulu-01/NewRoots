@@ -25,7 +25,7 @@ export default function Navbar({ showSearch = false, onSearch }) {
           <div className="flex items-center space-x-8">
             <a href="/" className="flex items-center space-x-2">
               <span className="text-2xl font-bold bg-gradient-to-r from-primary to-hope-green-dark bg-clip-text text-transparent">
-                HOPE
+                NewRoots
               </span>
             </a>
 
@@ -74,7 +74,7 @@ export default function Navbar({ showSearch = false, onSearch }) {
             ) : (
               <>
                 <a href="/login" className="nav-link">Sign In</a>
-                <a href="/register" className="btn-primary">Join HOPE</a>
+                <a href="/register" className="btn-primary">Join NewRoots</a>
               </>
             )}
           </div>

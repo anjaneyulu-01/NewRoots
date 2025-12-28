@@ -25,7 +25,7 @@ export default function Register() {
       {/* Left Side - Hero */}
       <div className="hidden lg:flex lg:w-1/2 hero-gradient items-center justify-center p-12">
         <div className="max-w-md text-white">
-          <h1 className="text-5xl font-bold mb-6">Start Your Journey with HOPE</h1>
+          <h1 className="text-5xl font-bold mb-6">Start Your Journey with NewRoots</h1>
           <p className="text-xl text-white/90 mb-8">
             Join thousands of new migrants finding support, opportunities, and a sense of belonging.
           </p>
@@ -67,7 +67,7 @@ export default function Register() {
               Create your account
             </h1>
             <p className="text-hope-gray-600 dark:text-hope-gray-400">
-              Join HOPE and unlock all features for free
+              Join NewRoots and unlock all features for free
             </p>
           </div>
 
@@ -139,7 +139,7 @@ export default function Register() {
 
           <div className="mt-8 pt-6 border-t border-hope-gray-200 dark:border-hope-gray-700 text-center">
             <p className="text-xs text-hope-gray-500 dark:text-hope-gray-500">
-              By continuing, you agree to HOPE's Terms of Service and Privacy Policy
+              By continuing, you agree to NewRoots' Terms of Service and Privacy Policy
             </p>
           </div>
         </div>

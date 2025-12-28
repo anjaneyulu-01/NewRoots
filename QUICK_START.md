@@ -1,14 +1,14 @@
-# HOPE Platform - Quick Start Guide 🚀
+# NewRoots Platform - Quick Start Guide 🚀
 
 ## 🎨 Redesign Complete!
 
-Your HOPE platform now has a **professional, Fiverr-inspired UI/UX** that's ready for real users and hackathon presentations!
+Your NewRoots platform now has a **professional, Fiverr-inspired UI/UX** that's ready for real users and hackathon presentations!
 
 ## 🌟 What's New?
 
 ### ✨ New Visual Design
 - **Fiverr-inspired** professional marketplace feel
-- **HOPE Green** (#1dbf73) as primary brand color
+- **NewRoots Green** (#1dbf73) as primary brand color
 - **Clean, modern cards** for all content
 - **Beautiful gradients** and hover effects
 - **Full dark mode** support everywhere
@@ -189,7 +189,7 @@ frontend/src/
 
 | Color | Hex | Usage |
 |-------|-----|-------|
-| HOPE Green | `#1dbf73` | Primary actions, success |
+| NewRoots Green | `#1dbf73` | Primary actions, success |
 | Green Dark | `#19a463` | Hover states |
 | Green Light | `#e7f7ee` | Backgrounds |
 | Secondary Blue | `#446ee7` | Secondary actions, info |
@@ -211,9 +211,9 @@ frontend/src/
 
 ## 🎉 You're All Set!
 
-The HOPE platform is now:
+The NewRoots platform is now:
 ✨ **Professional** - Fiverr-quality design
-💚 **On-brand** - HOPE green throughout
+💚 **On-brand** - NewRoots green throughout
 📱 **Responsive** - Works on all devices
 🌗 **Dark mode** - Full support
 ♿ **Accessible** - User-friendly
@@ -227,4 +227,4 @@ Need help? Check the documentation:
 - [DESIGN_SYSTEM.md](./DESIGN_SYSTEM.md)
 - [REDESIGN_SUMMARY.md](./REDESIGN_SUMMARY.md)
 
-**Built with ❤️ | Inspired by Fiverr | Powered by HOPE**
+**Built with ❤️ | Inspired by Fiverr | Powered by NewRoots**

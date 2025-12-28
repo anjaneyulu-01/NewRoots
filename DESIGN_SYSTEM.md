@@ -1,8 +1,8 @@
-# HOPE Platform - Fiverr-Inspired Design System
+# NewRoots Platform - Fiverr-Inspired Design System
 
 ## 🎨 Design Philosophy
 
-The HOPE platform UI/UX is inspired by Fiverr's clean, professional marketplace design while maintaining our unique mission of supporting new migrants. The design emphasizes:
+The NewRoots platform UI/UX is inspired by Fiverr's clean, professional marketplace design while maintaining our unique mission of supporting new migrants. The design emphasizes:
 
 - **Accessibility & Clarity**: Easy to navigate for users of all backgrounds
 - **Professional & Friendly**: Professional enough for real-world use, friendly enough to feel welcoming
@@ -12,7 +12,7 @@ The HOPE platform UI/UX is inspired by Fiverr's clean, professional marketplace 
 ## 🎨 Color Palette
 
 ### Primary Colors
-- **HOPE Green** (`#1dbf73`): Primary action color, success states
+- **NewRoots Green** (`#1dbf73`): Primary action color, success states
   - Dark variant: `#19a463`
   - Light variant: `#e7f7ee`
 - **Secondary Blue** (`#446ee7`): Secondary actions, info states
@@ -267,4 +267,4 @@ export default function MyComponent({ data }) {
 
 ---
 
-**Built with ❤️ for new migrants by the HOPE team**
+**Built with ❤️ for new migrants by the NewRoots team**

@@ -1,8 +1,8 @@
-# HOPE Platform - Fiverr-Inspired UI/UX Redesign
+# NewRoots Platform - Fiverr-Inspired UI/UX Redesign
 
 ## 🎯 Project Overview
 
-The HOPE platform has been completely redesigned with a professional, Fiverr-inspired UI/UX while maintaining its unique mission of supporting new migrants. The redesign focuses on:
+The NewRoots platform has been completely redesigned with a professional, Fiverr-inspired UI/UX while maintaining its unique mission of supporting new migrants. The redesign focuses on:
 
 - **Professional marketplace feel** with clean, modern aesthetics
 - **Intuitive navigation** with search-first experience
@@ -14,7 +14,7 @@ The HOPE platform has been completely redesigned with a professional, Fiverr-ins
 ## 📦 What's New
 
 ### 1. **Design System** ✨
-- **New Color Palette**: HOPE Green (#1dbf73) as primary, professional gray scale
+- **New Color Palette**: NewRoots Green (#1dbf73) as primary, professional gray scale
 - **Typography System**: Clear hierarchy with Inter font family
 - **Component Library**: Reusable, accessible components
 - **Spacing & Layout**: Consistent grid systems and spacing
@@ -100,7 +100,7 @@ The HOPE platform has been completely redesigned with a professional, Fiverr-ins
 ✅ **Green as primary color** for success/action states
 ✅ **Professional dashboard** with stats and tables
 
-### HOPE's Unique Touch:
+### NewRoots' Unique Touch:
 💚 **Hopeful branding** - Green represents growth and opportunity
 🌍 **Inclusive design** - Easy to use for diverse backgrounds
 🤝 **Community-focused** - Emphasizes connection and support
@@ -205,7 +205,7 @@ npm run preview
 ✅ **Cards** - Professional gig-style cards throughout
 ✅ **Dashboard** - Complete redesign with tabs and stats
 ✅ **Forms** - Better layout with split-screen design
-✅ **Branding** - Consistent HOPE green throughout
+✅ **Branding** - Consistent NewRoots green throughout
 ✅ **Animations** - Smooth hover and transition effects
 ✅ **Status** - Clear badges and indicators
 ✅ **Spacing** - Consistent, professional spacing
@@ -278,7 +278,7 @@ For questions or issues with the design system:
 
 ## 🎉 Summary
 
-The HOPE platform now features a **professional, Fiverr-inspired design** that maintains its unique mission while providing a world-class user experience. The redesign includes:
+The NewRoots platform now features a **professional, Fiverr-inspired design** that maintains its unique mission while providing a world-class user experience. The redesign includes:
 
 ✨ **Modern UI** - Clean, professional, and inviting
 🎨 **Complete Design System** - Consistent and scalable
@@ -291,4 +291,4 @@ The HOPE platform now features a **professional, Fiverr-inspired design** that m
 
 ---
 
-**Built with ❤️ for new migrants | Inspired by Fiverr's excellence | Powered by HOPE**
+**Built with ❤️ for new migrants | Inspired by Fiverr's excellence | Powered by NewRoots**

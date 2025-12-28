@@ -24,7 +24,7 @@ export default function Login() {
       {/* Left Side - Hero */}
       <div className="hidden lg:flex lg:w-1/2 hero-gradient items-center justify-center p-12">
         <div className="max-w-md text-white">
-          <h1 className="text-5xl font-bold mb-6">Welcome back to HOPE</h1>
+          <h1 className="text-5xl font-bold mb-6">Welcome back to NewRoots</h1>
           <p className="text-xl text-white/90 mb-8">
             Continue your journey to find community support, meaningful work, and a place to call home.
           </p>
@@ -63,7 +63,7 @@ export default function Login() {
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-hope-green-dark bg-clip-text text-transparent mb-2">
-              Sign in to HOPE
+              Sign in to NewRoots
             </h1>
             <p className="text-hope-gray-600 dark:text-hope-gray-400">
               Access your dashboard and continue building your future
@@ -114,14 +114,14 @@ export default function Login() {
             <p className="text-sm text-hope-gray-600 dark:text-hope-gray-400">
               Don't have an account?{' '}
               <a href="/register" className="text-primary hover:text-hope-green-dark font-semibold transition-colors">
-                Join HOPE today
+                Join NewRoots today
               </a>
             </p>
           </div>
 
           <div className="mt-8 pt-6 border-t border-hope-gray-200 dark:border-hope-gray-700 text-center">
             <p className="text-xs text-hope-gray-500 dark:text-hope-gray-500">
-              By continuing, you agree to HOPE's Terms of Service and Privacy Policy
+              By continuing, you agree to NewRoots' Terms of Service and Privacy Policy
             </p>
           </div>
         </div>

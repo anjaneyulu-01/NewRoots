@@ -1,4 +1,4 @@
-# HOPE Platform
+# NewRoots Platform
 
 A social-impact web platform to help newcomers find low-cost housing, work, events, and connect with organizers, workers, and artists.
 
