@@ -1,7 +1,13 @@
 import dotenv from "dotenv";
-dotenv.config();
+import path from "path";
+import { fileURLToPath } from "url";
 
-// dotenv already loaded above; avoid noisy debug logs in production
+// Fix for ES modules (__dirname replacement)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Explicit path to backend/.env
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 import app from "./app.js";
 
