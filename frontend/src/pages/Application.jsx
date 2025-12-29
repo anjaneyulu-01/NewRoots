@@ -9,7 +9,7 @@ import CategoryCard from '../components/CategoryCard.jsx';
 import LocationPicker from '../components/LocationPicker.jsx';
 import ContactModal from '../components/ContactModal.jsx';
 
-const api = axios.create();
+const api = axios.create({ baseURL: import.meta.env.VITE_API_BASE_URL });
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
@@ -44,13 +44,13 @@ export default function Application() {
 
   const loadData = async () => {
     const [ev, house, jb] = await Promise.all([
-      axios.get('/api/events').then((r) => r.data.events),
-      axios.get('/api/housing').then((r) => r.data.housing),
-      axios.get('/api/jobs').then((r) => r.data.jobs),
+      api.get('/api/events').then((r) => r.data?.events ?? []),
+      api.get('/api/housing').then((r) => r.data?.housing ?? []),
+      api.get('/api/jobs').then((r) => r.data?.jobs ?? []),
     ]);
-    setEvents(ev);
-    setHousing(house);
-    setJobs(jb);
+    setEvents(ev ?? []);
+    setHousing(house ?? []);
+    setJobs(jb ?? []);
   };
 
   const createEvent = async (e) => {
