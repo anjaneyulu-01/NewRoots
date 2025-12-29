@@ -168,32 +168,73 @@ export default function LocationPicker({ onSelectLocation, onCancel, initialLoca
   };
 
   // Select a search result
-  const handleSelectResult = (result) => {
+  const handleSelectResult = async (result) => {
     const lat = parseFloat(result.lat);
     const lng = parseFloat(result.lon);
-    placeMarker(lat, lng);
+    await placeMarker(lat, lng);
     setSearchInput('');
     setSearchResults([]);
+    // do NOT auto-confirm here — let the user explicitly confirm or use
   };
 
   // Use current location
   const handleUseCurrentLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          // Place marker, resolve address, and auto-confirm selection
-          placeMarker(latitude, longitude).then((addr) => {
-            onSelectLocation({ lat: latitude, lng: longitude, address: addr });
-          });
-        },
-        () => {
-          alert('Unable to get your current location. Please enable location services.');
-        }
-      );
-    } else {
+    if (!navigator.geolocation) {
       alert('Geolocation is not supported by your browser.');
+      return;
     }
+
+    // Use Permissions API when available to provide clearer guidance
+    const ask = async () => {
+      try {
+        if (navigator.permissions && navigator.permissions.query) {
+          const status = await navigator.permissions.query({ name: 'geolocation' });
+          if (status.state === 'denied') {
+            alert('Location access is blocked for this site. Please enable location permission in your browser settings and try again.');
+            return;
+          }
+          // if 'prompt' or 'granted', proceed to request location which will show browser prompt when necessary
+        }
+
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords;
+            // Place marker, resolve address, and auto-confirm selection
+            placeMarker(latitude, longitude).then((addr) => {
+              onSelectLocation({ lat: latitude, lng: longitude, address: addr });
+            });
+          },
+          (err) => {
+            console.error('Geolocation error:', err);
+            if (err.code === 1) {
+              alert('Location permission denied. Please enable location permission in your browser settings.');
+            } else if (err.code === 2) {
+              alert('Unable to determine your location. Try again or pick a location on the map.');
+            } else if (err.code === 3) {
+              alert('Location request timed out. Try again.');
+            } else {
+              alert('Unable to get your current location. Please enable location services.');
+            }
+          },
+          { enableHighAccuracy: true, timeout: 10000 }
+        );
+      } catch (e) {
+        console.error('Permission API error:', e);
+        // fallback to direct request which will trigger browser prompt if allowed
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords;
+            placeMarker(latitude, longitude).then((addr) => {
+              onSelectLocation({ lat: latitude, lng: longitude, address: addr });
+            });
+          },
+          () => alert('Unable to get your current location. Please enable location services.'),
+          { enableHighAccuracy: true, timeout: 10000 }
+        );
+      }
+    };
+
+    ask();
   };
 
   // Confirm and return location
@@ -262,6 +303,18 @@ export default function LocationPicker({ onSelectLocation, onCancel, initialLoca
           <div className="location-picker-address">
             <label>Selected Address:</label>
             <div className="location-picker-address-value">{address}</div>
+            <div className="location-picker-address-actions">
+              <button
+                type="button"
+                className="location-picker-btn-primary"
+                onClick={() => {
+                  if (!selectedLocation) return;
+                  onSelectLocation({ lat: selectedLocation.lat, lng: selectedLocation.lng, address });
+                }}
+              >
+                Use This Location
+              </button>
+            </div>
           </div>
         )}
 

@@ -13,6 +13,8 @@ const UserSchema = new mongoose.Schema(
     name: { type: String, required: true, unique: true, index: true },
     email: { type: String, required: true, unique: true, index: true },
     passwordHash: { type: String, required: true },
+    emailVerified: { type: Boolean, default: false },
+    googleId: { type: String, index: true, sparse: true },
     createdEvents: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Event' }],
     joinedEvents: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Event' }],
     earningsHistory: {

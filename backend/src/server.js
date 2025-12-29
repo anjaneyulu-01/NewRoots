@@ -1,5 +1,7 @@
 import dotenv from "dotenv";
-dotenv.config(); 
+dotenv.config();
+
+// dotenv already loaded above; avoid noisy debug logs in production
 
 import app from "./app.js";
 

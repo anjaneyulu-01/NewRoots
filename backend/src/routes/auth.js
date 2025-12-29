@@ -1,11 +1,83 @@
 import express from 'express';
+import dotenv from 'dotenv';
+dotenv.config();
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import Joi from 'joi';
+import nodemailer from 'nodemailer';
+import { OAuth2Client } from 'google-auth-library';
 import User from '../models/User.js';
+import EmailOtp from '../models/EmailOtp.js';
 import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
+
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+// configure nodemailer transporter from env (no hardcoded defaults)
+const smtpHost = process.env.SMTP_HOST;
+const smtpPort = process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : undefined;
+const smtpSecure = process.env.SMTP_SECURE === 'true';
+const smtpAuth = process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined;
+
+let transporter;
+if (smtpHost) {
+  transporter = nodemailer.createTransport({
+    host: smtpHost,
+    port: smtpPort,
+    secure: smtpSecure,
+    auth: smtpAuth,
+  });
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    console.warn('SMTP_USER or SMTP_PASS is not set. Transport may fail.');
+  }
+} else {
+  console.warn('SMTP_HOST is not set. Nodemailer will attempt connection and likely fall back to Ethereal in development.');
+  transporter = nodemailer.createTransport({});
+}
+
+// Verify transporter at startup and fall back to Ethereal in non-production
+(async () => {
+  try {
+    await transporter.verify();
+    console.log('SMTP transporter verified');
+  } catch (err) {
+    console.error('SMTP transporter verification failed:', err && err.stack ? err.stack : err);
+    if (process.env.NODE_ENV !== 'production') {
+      try {
+        const testAccount = await nodemailer.createTestAccount();
+        transporter = nodemailer.createTransport({
+          host: testAccount.smtp.host,
+          port: testAccount.smtp.port,
+          secure: testAccount.smtp.secure,
+          auth: { user: testAccount.user, pass: testAccount.pass },
+        });
+        console.log('Using Ethereal test account for email (development).');
+        console.log(`Ethereal account user=${testAccount.user} pass=${testAccount.pass}`);
+      } catch (e) {
+        console.error('Failed to create Ethereal test account:', e && e.stack ? e.stack : e);
+      }
+    }
+  }
+})();
+
+async function sendVerificationEmail(user) {
+  const token = jwt.sign({ id: user._id, purpose: 'email' }, process.env.JWT_SECRET, { expiresIn: '2d' });
+  const urlBase = process.env.API_URL || `${process.env.APP_URL || ''}`;
+  const link = `${urlBase}/api/auth/verify-email?token=${token}`;
+  const from = process.env.EMAIL_FROM || process.env.SMTP_USER || 'no-reply@newroots.local';
+  const mailOpts = {
+    from,
+    to: user.email,
+    subject: 'Verify your NewRoots email',
+    text: `Hi ${user.name},\n\nPlease verify your email by visiting this link: ${link}\n\nIf you did not create an account, ignore this message.`,
+    html: `<p>Hi ${user.name},</p><p>Please verify your email by clicking <a href="${link}">this link</a>.</p>`,
+  };
+  const info = await transporter.sendMail(mailOpts);
+  const preview = nodemailer.getTestMessageUrl(info);
+  if (preview) console.log('Preview verification email URL:', preview);
+}
 
 const registerSchema = Joi.object({
   name: Joi.string().min(2).required(),
@@ -17,7 +89,6 @@ router.post('/register', async (req, res) => {
   const { error, value } = registerSchema.validate(req.body);
   if (error) return res.status(400).json({ error: error.message });
   const { name, email, password } = value;
-  // check for duplicate email or name
   const existingEmail = await User.findOne({ email });
   if (existingEmail) return res.status(409).json({ error: 'Email already in use' });
   const existingName = await User.findOne({ name });
@@ -27,12 +98,15 @@ router.post('/register', async (req, res) => {
   try {
     user = await User.create({ name, email, passwordHash });
   } catch (err) {
-    // handle race-condition duplicate key errors gracefully
     if (err.code === 11000) return res.status(409).json({ error: 'Email or name already in use' });
     throw err;
   }
-  const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
-  res.status(201).json({ token, user: { id: user._id, name: user.name, email: user.email } });
+  try {
+    await sendVerificationEmail(user);
+  } catch (err) {
+    console.warn('Error sending verification email:', err.message);
+  }
+  res.status(201).json({ message: 'Account created. Please verify your email to continue.' });
 });
 
 const loginSchema = Joi.object({
@@ -48,12 +122,146 @@ router.post('/login', async (req, res) => {
   if (!user) return res.status(401).json({ error: 'Invalid credentials' });
   const ok = await bcrypt.compare(password, user.passwordHash);
   if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
+  if (!user.emailVerified) {
+    return res.status(403).json({ error: 'Email not verified', emailVerified: !!user.emailVerified });
+  }
   const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
   res.json({ token, user: { id: user._id, name: user.name, email: user.email } });
 });
 
+// verify email link
+router.get('/verify-email', async (req, res) => {
+  const { token } = req.query;
+  if (!token) return res.status(400).send('Missing token');
+  try {
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    if (payload.purpose !== 'email') return res.status(400).send('Invalid token');
+    const user = await User.findById(payload.id);
+    if (!user) return res.status(404).send('User not found');
+    user.emailVerified = true;
+    await user.save();
+    return res.send('Email verified.');
+  } catch (err) {
+    return res.status(400).send('Invalid or expired token');
+  }
+});
+
+// send email OTP (for registration verification)
+router.post('/send-email-otp', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'Missing email' });
+  const code = (Math.floor(100000 + Math.random() * 900000)).toString();
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+  try {
+    await EmailOtp.findOneAndUpdate({ email }, { code, expiresAt }, { upsert: true, new: true });
+    const from = process.env.EMAIL_FROM || process.env.SMTP_USER || 'no-reply@newroots.local';
+    const mailOpts = {
+      from,
+      to: email,
+      subject: 'Your NewRoots verification code',
+      text: `Your verification code is: ${code}. It expires in 10 minutes.`,
+      html: `<p>Your verification code is: <strong>${code}</strong></p><p>It expires in 10 minutes.</p>`,
+    };
+    const info = await transporter.sendMail(mailOpts);
+    // If using ethereal, log preview URL
+    const preview = nodemailer.getTestMessageUrl(info);
+    if (preview) console.log('Preview email URL:', preview);
+    return res.json({ success: true, message: 'OTP sent', preview: preview || null });
+  } catch (err) {
+    console.error('send-email-otp error', err);
+    return res.status(500).json({ error: 'Failed to send OTP' });
+  }
+});
+
+// verify email OTP
+router.post('/verify-email-otp', async (req, res) => {
+  const { email, code } = req.body;
+  if (!email || !code) return res.status(400).json({ error: 'Missing email or code' });
+  try {
+    const record = await EmailOtp.findOne({ email, code });
+    if (!record) return res.status(400).json({ error: 'Invalid code' });
+    if (record.expiresAt < new Date()) return res.status(400).json({ error: 'Code expired' });
+    // remove used codes
+    await EmailOtp.deleteMany({ email });
+    // if user exists, mark verified
+    const user = await User.findOne({ email });
+    if (user) {
+      user.emailVerified = true;
+      await user.save();
+    }
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('verify-email-otp error', err);
+    return res.status(500).json({ error: 'Failed to verify code' });
+  }
+});
+
+// Register using OTP: verifies OTP then creates the user and marks emailVerified
+router.post('/register-with-otp', async (req, res) => {
+  const { name, email, password, code } = req.body;
+  // basic validation
+  if (!name || !email || !password || !code) return res.status(400).json({ error: 'Missing registration fields' });
+  try {
+    const record = await EmailOtp.findOne({ email, code });
+    if (!record) return res.status(400).json({ error: 'Invalid or missing OTP' });
+    if (record.expiresAt < new Date()) return res.status(400).json({ error: 'OTP expired' });
+    // check for existing user
+    let existingUser = await User.findOne({ email });
+    // if a user exists and is already verified, reject
+    if (existingUser && existingUser.emailVerified) return res.status(409).json({ error: 'Email already in use' });
+    // check name conflict with other user (if name taken by another account)
+    const nameOwner = await User.findOne({ name });
+    if (nameOwner && (!existingUser || nameOwner._id.toString() !== existingUser._id.toString())) {
+      return res.status(409).json({ error: 'Name already in use' });
+    }
+    const passwordHash = await bcrypt.hash(password, 10);
+    if (existingUser) {
+      // update existing unverified user
+      existingUser.name = name;
+      existingUser.passwordHash = passwordHash;
+      existingUser.emailVerified = true;
+      await existingUser.save();
+    } else {
+      // create new user
+      await User.create({ name, email, passwordHash, emailVerified: true });
+    }
+    // remove used OTPs
+    await EmailOtp.deleteMany({ email });
+    return res.status(201).json({ success: true, message: 'Account created' });
+  } catch (err) {
+    console.error('register-with-otp error', err);
+    return res.status(500).json({ error: 'Failed to create account' });
+  }
+});
+
+// Note: phone verification via Firebase has been removed — email verification is used.
+
+// Google sign-in: client sends Google idToken
+router.post('/google', async (req, res) => {
+  const { idToken } = req.body;
+  if (!idToken) return res.status(400).json({ error: 'Missing idToken' });
+  try {
+    const ticket = await googleClient.verifyIdToken({ idToken, audience: process.env.GOOGLE_CLIENT_ID });
+    const payload = ticket.getPayload();
+    const { sub: googleId, email, name } = payload;
+    let user = await User.findOne({ $or: [{ googleId }, { email }] });
+    if (!user) {
+      user = await User.create({ name: name || email.split('@')[0], email, passwordHash: '', googleId, emailVerified: true });
+    } else if (!user.googleId) {
+      user.googleId = googleId;
+      user.emailVerified = true;
+      await user.save();
+    }
+    // Phone verification is optional for login now — allow Google sign-ins with verified email
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    return res.json({ token, user: { id: user._id, name: user.name, email: user.email } });
+  } catch (err) {
+    return res.status(400).json({ error: 'Invalid Google token', details: err.message });
+  }
+});
+
 router.get('/me', requireAuth, async (req, res) => {
-  const me = await User.findById(req.user.id).select('name email createdAt');
+  const me = await User.findById(req.user.id).select('name email createdAt emailVerified');
   res.json({ user: me });
 });
 

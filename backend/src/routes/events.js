@@ -90,7 +90,8 @@ router.put('/:id', requireAuth, requireEventOwner, async (req, res) => {
 router.delete('/:id', requireAuth, requireEventOwner, async (req, res) => {
   // remove related applications
   await Application.deleteMany({ event: req.params.id });
-  await req.event.remove();
+  // use deleteOne() on the mongoose document (remove() was removed/deprecated)
+  await req.event.deleteOne();
   res.json({ success: true });
 });
 
