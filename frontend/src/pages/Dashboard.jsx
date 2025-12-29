@@ -413,9 +413,9 @@ export default function Dashboard() {
           </div>
           <div className="ml-4">
             <button
-              onClick={() => {
+                onClick={() => {
                 localStorage.removeItem('token');
-                window.location.href = '/login';
+                window.location.href = '#/login';
               }}
               className="px-3 py-2 bg-hope-gray-100 dark:bg-hope-gray-800 text-hope-gray-700 dark:text-hope-gray-200 rounded-md hover:bg-hope-gray-200"
             >
@@ -1322,7 +1322,7 @@ export default function Dashboard() {
                 await api.delete('/api/auth/me');
                 // clear token and redirect to login
                 localStorage.removeItem('token');
-                window.location.href = '/login';
+                window.location.href = '#/login';
               } catch (err) {
                 alert(err.response?.data?.error || 'Failed to delete account');
               }

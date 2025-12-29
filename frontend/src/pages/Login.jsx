@@ -18,7 +18,7 @@ export default function Login() {
     try {
       const res = await api.post('/api/auth/login', { email, password });
       localStorage.setItem('token', res.data.token);
-      window.location.href = '/';
+      window.location.href = '#/';
     } catch (err) {
       setError(err.response?.data?.error || 'Login failed');
     }
@@ -119,7 +119,7 @@ export default function Login() {
           <div className="mt-6 text-center">
             <p className="text-sm text-hope-gray-600 dark:text-hope-gray-400">
               Don't have an account?{' '}
-              <a href="/register" className="text-primary hover:text-hope-green-dark font-semibold transition-colors">
+              <a href="#/register" className="text-primary hover:text-hope-green-dark font-semibold transition-colors">
                 Join NewRoots today
               </a>
             </p>

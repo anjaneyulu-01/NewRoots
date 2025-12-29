@@ -15,14 +15,14 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err?.response?.status === 401) {
+      if (err?.response?.status === 401) {
       try {
         localStorage.removeItem('token');
       } catch (e) {
         // ignore
       }
       // Force redirect to login to surface auth issues instead of blank UI
-      if (typeof window !== 'undefined') window.location.href = '/login';
+      if (typeof window !== 'undefined') window.location.href = '#/login';
     }
     return Promise.reject(err);
   }

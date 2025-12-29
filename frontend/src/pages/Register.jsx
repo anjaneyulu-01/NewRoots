@@ -117,7 +117,7 @@ export default function Register() {
       if (res.data.token) {
         localStorage.setItem('token', res.data.token);
       }
-      window.location.href = '/';
+      window.location.href = '#/';
     } catch (err) {
       setError(err.response?.data?.error || 'Registration failed');
     }
@@ -160,7 +160,7 @@ export default function Register() {
       const res = await api.post('/api/auth/register-with-otp', { name, email, password, code: otp });
       if (res.status === 201) {
         // success — redirect to login
-        window.location.href = '/login';
+        window.location.href = '#/login';
         return;
       }
     } catch (err) {
