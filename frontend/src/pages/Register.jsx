@@ -44,7 +44,7 @@ export default function Register() {
             try {
               const res = await api.post('/api/auth/google', { idToken: resp.credential });
               localStorage.setItem('token', res.data.token);
-              window.location.href = '/';
+              window.location.href = '#/';
             } catch (err) {
               setError(err.response?.data?.error || 'Google sign-in failed');
             }
