@@ -7,21 +7,33 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [fieldError, setFieldError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const onSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setFieldError('');
+    setLoading(true);
     const emailRe = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
     if (!email || !emailRe.test(email)) { setFieldError('Enter a valid email'); return; }
     if (!password || password.length < 6) { setFieldError('Password must be at least 6 characters'); return; }
     try {
       const res = await api.post('/api/auth/login', { email, password });
-      localStorage.setItem('token', res.data.token);
+      console.log('login response', res && res.data);
+      const token = res?.data?.token || res?.data?.accessToken || res?.data?.data?.token;
+      if (!token) {
+        console.error('No token in login response', res?.data);
+        setError('Login succeeded but no token returned');
+        setLoading(false);
+        return;
+      }
+      localStorage.setItem('token', token);
+      // navigate to app root (HashRouter)
       window.location.href = '#/';
     } catch (err) {
       setError(err.response?.data?.error || 'Login failed');
     }
+    finally { setLoading(false); }
   };
 
   return (
@@ -111,8 +123,8 @@ export default function Login() {
               />
             </div>
 
-            <button type="submit" className="w-full btn-primary py-3 text-base">
-              Sign In
+            <button type="submit" className="w-full btn-primary py-3 text-base" disabled={loading}>
+              {loading ? 'Signing in…' : 'Sign In'}
             </button>
           </form>
 
