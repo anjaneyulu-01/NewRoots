@@ -8,6 +8,11 @@ import nodemailer from 'nodemailer';
 import { OAuth2Client } from 'google-auth-library';
 import User from '../models/User.js';
 import EmailOtp from '../models/EmailOtp.js';
+import Event from '../models/Event.js';
+import Job from '../models/Job.js';
+import Housing from '../models/Housing.js';
+import Application from '../models/Application.js';
+import Contact from '../models/Contact.js';
 import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -28,6 +33,9 @@ if (smtpHost) {
     port: smtpPort,
     secure: smtpSecure,
     auth: smtpAuth,
+    connectionTimeout: 5000,
+    greetingTimeout: 5000,
+    socketTimeout: 5000,
   });
   if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
     console.warn('SMTP_USER or SMTP_PASS is not set. Transport may fail.');
@@ -62,22 +70,7 @@ if (smtpHost) {
   }
 })();
 
-async function sendVerificationEmail(user) {
-  const token = jwt.sign({ id: user._id, purpose: 'email' }, process.env.JWT_SECRET, { expiresIn: '2d' });
-  const urlBase = process.env.API_URL || `${process.env.APP_URL || ''}`;
-  const link = `${urlBase}/api/auth/verify-email?token=${token}`;
-  const from = process.env.EMAIL_FROM || process.env.SMTP_USER || 'no-reply@newroots.local';
-  const mailOpts = {
-    from,
-    to: user.email,
-    subject: 'Verify your NewRoots email',
-    text: `Hi ${user.name},\n\nPlease verify your email by visiting this link: ${link}\n\nIf you did not create an account, ignore this message.`,
-    html: `<p>Hi ${user.name},</p><p>Please verify your email by clicking <a href="${link}">this link</a>.</p>`,
-  };
-  const info = await transporter.sendMail(mailOpts);
-  const preview = nodemailer.getTestMessageUrl(info);
-  if (preview) console.log('Preview verification email URL:', preview);
-}
+// Email link verification removed: verification is handled via OTP only.
 
 const registerSchema = Joi.object({
   name: Joi.string().min(2).required(),
@@ -101,12 +94,8 @@ router.post('/register', async (req, res) => {
     if (err.code === 11000) return res.status(409).json({ error: 'Email or name already in use' });
     throw err;
   }
-  try {
-    await sendVerificationEmail(user);
-  } catch (err) {
-    console.warn('Error sending verification email:', err.message);
-  }
-  res.status(201).json({ message: 'Account created. Please verify your email to continue.' });
+  // Do not send verification link by email; verification is done via OTP only.
+  res.status(201).json({ message: 'Account created. Please verify your email using the OTP.' });
 });
 
 const loginSchema = Joi.object({
@@ -129,22 +118,7 @@ router.post('/login', async (req, res) => {
   res.json({ token, user: { id: user._id, name: user.name, email: user.email } });
 });
 
-// verify email link
-router.get('/verify-email', async (req, res) => {
-  const { token } = req.query;
-  if (!token) return res.status(400).send('Missing token');
-  try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
-    if (payload.purpose !== 'email') return res.status(400).send('Invalid token');
-    const user = await User.findById(payload.id);
-    if (!user) return res.status(404).send('User not found');
-    user.emailVerified = true;
-    await user.save();
-    return res.send('Email verified.');
-  } catch (err) {
-    return res.status(400).send('Invalid or expired token');
-  }
-});
+// Email link verification removed; use OTP verification endpoints instead.
 
 // send email OTP (for registration verification)
 router.post('/send-email-otp', async (req, res) => {
@@ -168,8 +142,9 @@ router.post('/send-email-otp', async (req, res) => {
     if (preview) console.log('Preview email URL:', preview);
     return res.json({ success: true, message: 'OTP sent', preview: preview || null });
   } catch (err) {
-    console.error('send-email-otp error', err);
-    return res.status(500).json({ error: 'Failed to send OTP' });
+    console.error('send-email-otp error', err && err.stack ? err.stack : err);
+    const details = process.env.NODE_ENV !== 'production' && err && err.message ? err.message : undefined;
+    return res.status(500).json({ error: 'Failed to send OTP', details });
   }
 });
 
@@ -263,6 +238,47 @@ router.post('/google', async (req, res) => {
 router.get('/me', requireAuth, async (req, res) => {
   const me = await User.findById(req.user.id).select('name email createdAt emailVerified');
   res.json({ user: me });
+});
+
+// delete authenticated user's account
+router.delete('/me', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    // delete events created by user and their applications
+    const events = await Event.find({ createdBy: userId }).select('_id');
+    const eventIds = events.map((e) => e._id);
+    if (eventIds.length) {
+      await Application.deleteMany({ event: { $in: eventIds } });
+      await Event.deleteMany({ _id: { $in: eventIds } });
+    }
+    // delete jobs posted by user and related applications
+    const jobs = await Job.find({ postedBy: userId }).select('_id');
+    const jobIds = jobs.map((j) => j._id);
+    if (jobIds.length) {
+      await Application.deleteMany({ job: { $in: jobIds } });
+      await Job.deleteMany({ _id: { $in: jobIds } });
+    }
+    // delete housing posted by user and related applications
+    const housings = await Housing.find({ postedBy: userId }).select('_id');
+    const housingIds = housings.map((h) => h._id);
+    if (housingIds.length) {
+      await Application.deleteMany({ housing: { $in: housingIds } });
+      await Housing.deleteMany({ _id: { $in: housingIds } });
+    }
+    // delete applications made by the user
+    await Application.deleteMany({ applicant: userId });
+    // delete contacts where user is sender or recipient
+    await Contact.deleteMany({ $or: [{ toUser: userId }, { fromUser: userId }] });
+    // delete any OTPs for user's email
+    const me = await User.findById(userId).select('email');
+    if (me && me.email) await EmailOtp.deleteMany({ email: me.email });
+    // finally delete user
+    await User.findByIdAndDelete(userId);
+    return res.json({ success: true, message: 'Account and related data deleted' });
+  } catch (err) {
+    console.error('delete account error', err);
+    return res.status(500).json({ error: 'Failed to delete account' });
+  }
 });
 
 export default router;

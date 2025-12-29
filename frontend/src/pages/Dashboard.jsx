@@ -364,14 +364,29 @@ export default function Dashboard() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-hope-gray-900 dark:text-hope-gray-100 mb-2">
-            My Dashboard
-          </h1>
-          <p className="text-hope-gray-600 dark:text-hope-gray-400">
-            Manage your events, applications, and earnings
-          </p>
+        <div className="mb-8 flex items-start md:items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-hope-gray-900 dark:text-hope-gray-100 mb-2">
+              My Dashboard
+            </h1>
+            <p className="text-hope-gray-600 dark:text-hope-gray-400">
+              Manage your events, applications, and earnings
+            </p>
+          </div>
+          <div className="ml-4">
+            <button
+              onClick={() => {
+                localStorage.removeItem('token');
+                window.location.href = '/login';
+              }}
+              className="px-3 py-2 bg-hope-gray-100 dark:bg-hope-gray-800 text-hope-gray-700 dark:text-hope-gray-200 rounded-md hover:bg-hope-gray-200"
+            >
+              Logout
+            </button>
+          </div>
         </div>
+
+        {/* Account actions removed from here and placed at bottom of page */}
 
         {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -928,9 +943,9 @@ export default function Dashboard() {
                         
                         return sorted.map(([userId, { user }]) => {
                           // Count unread messages from this user
-                          const unreadCount = incomingContacts.filter(c => 
-                            c.fromUser?._id === userId && c.status === 'new'
-                          ).length;
+                            const unreadCount = incomingContacts.filter(c =>
+                              String(c.fromUser?._id) === String(userId) && c.status === 'new'
+                            ).length;
                           
                           return (
                             <div
@@ -974,25 +989,52 @@ export default function Dashboard() {
                 {selectedConversation ? (
                   <>
                     {/* Chat Header */}
-                    <div className="p-4 border-b border-hope-gray-200 dark:border-hope-gray-700 flex items-center gap-3">
+                    <div className="p-4 border-b border-hope-gray-200 dark:border-hope-gray-700 flex items-center justify-between gap-3">
                       {(() => {
                         const allContacts = [...incomingContacts, ...sentMessages];
                         const conversation = allContacts.find(
-                          (c) => c.fromUser?._id === selectedConversation || c.toUser?._id === selectedConversation
+                          (c) => String(c.fromUser?._id) === String(selectedConversation) || String(c.toUser?._id) === String(selectedConversation)
                         );
-                        const otherUser = conversation?.fromUser?._id === selectedConversation ? conversation.fromUser : conversation?.toUser;
+                        const otherUser = String(conversation?.fromUser?._id) === String(selectedConversation) ? conversation.fromUser : conversation?.toUser;
                         return (
                           <>
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-secondary/20 to-primary/20 flex items-center justify-center font-semibold text-hope-gray-700 dark:text-hope-gray-300">
-                              {otherUser?.name?.charAt(0).toUpperCase()}
-                            </div>
-                            <div>
-                              <h3 className="font-semibold text-hope-gray-900 dark:text-hope-gray-100">{otherUser?.name}</h3>
-                              <p className="text-xs text-hope-gray-500 dark:text-hope-gray-400">{otherUser?.email}</p>
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-secondary/20 to-primary/20 flex items-center justify-center font-semibold text-hope-gray-700 dark:text-hope-gray-300">
+                                {otherUser?.name?.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <h3 className="font-semibold text-hope-gray-900 dark:text-hope-gray-100">{otherUser?.name}</h3>
+                                <p className="text-xs text-hope-gray-500 dark:text-hope-gray-400">{otherUser?.email}</p>
+                              </div>
                             </div>
                           </>
                         );
                       })()}
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={async () => {
+                            if (!confirm('Clear chat in your dashboard? This will hide messages only for you.')) return;
+                            try {
+                              // try DELETE first, fall back to POST if server/proxy blocks DELETE
+                              try {
+                                await api.delete(`/api/contact/clear/${selectedConversation}`);
+                              } catch (e) {
+                                await api.post('/api/contact/clear', { otherUserId: selectedConversation });
+                              }
+                              await loadDashboardData(true);
+                            } catch (err) {
+                              console.error('Failed to clear conversation', err);
+                              // show more helpful message to user when available
+                              const server = err.response?.data;
+                              const msg = server?.error || server?.details || err.message || 'Failed to clear chat';
+                              alert(msg);
+                            }
+                          }}
+                          className="px-3 py-1 text-sm rounded bg-hope-gray-100 dark:bg-hope-gray-800 hover:bg-hope-gray-200"
+                        >
+                          Clear chat
+                        </button>
+                      </div>
                     </div>
 
                     {/* Messages Area */}
@@ -1000,7 +1042,7 @@ export default function Dashboard() {
                       {(() => {
                         const allContacts = [...incomingContacts, ...sentMessages];
                         const conversation = allContacts
-                          .filter((c) => c.fromUser?._id === selectedConversation || c.toUser?._id === selectedConversation)
+                          .filter((c) => String(c.fromUser?._id) === String(selectedConversation) || String(c.toUser?._id) === String(selectedConversation))
                           .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
                         if (conversation.length === 0) {
@@ -1010,7 +1052,7 @@ export default function Dashboard() {
                         return conversation.map((contact) => {
                           // If fromUser._id matches selectedConversation, message is FROM other user (left)
                           // If toUser._id matches selectedConversation, message is TO other user, FROM me (right)
-                          const isFromOtherUser = contact.fromUser?._id === selectedConversation;
+                          const isFromOtherUser = String(contact.fromUser?._id) === String(selectedConversation);
                           return (
                             <div key={contact._id} className="space-y-2">
                               {/* Main Message */}
@@ -1039,7 +1081,7 @@ export default function Dashboard() {
                               {contact.replies && contact.replies.length > 0 && (
                                 <div className="space-y-2">
                                   {contact.replies.map((reply, idx) => {
-                                    const isReplyFromOther = reply.fromUser?._id === selectedConversation;
+                                    const isReplyFromOther = String(reply.fromUser?._id) === String(selectedConversation);
                                     return (
                                       <div key={idx} className={`flex ${isReplyFromOther ? 'justify-start' : 'justify-end'} gap-2 ml-4`}>
                                         {isReplyFromOther && (
@@ -1197,6 +1239,29 @@ export default function Dashboard() {
         )}
 
       </main>
+      {/* Account actions - moved to bottom */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mt-12 border-t pt-6">
+          <h2 className="text-lg font-semibold text-hope-gray-800 dark:text-hope-gray-100 mb-3">Account</h2>
+          <div className="text-sm text-hope-gray-600 dark:text-hope-gray-400 mb-4">If you delete your account, your profile and data will be removed. This action is irreversible.</div>
+          <button
+            onClick={async () => {
+              if (!confirm('Are you sure you want to delete your account? This action cannot be undone.')) return;
+              try {
+                await api.delete('/api/auth/me');
+                // clear token and redirect to login
+                localStorage.removeItem('token');
+                window.location.href = '/login';
+              } catch (err) {
+                alert(err.response?.data?.error || 'Failed to delete account');
+              }
+            }}
+            className="btn-ghost border border-rose-500 text-rose-600 px-4 py-2 rounded"
+          >
+            Delete account
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

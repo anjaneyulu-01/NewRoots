@@ -17,6 +17,7 @@ const ContactSchema = new mongoose.Schema(
     message: { type: String, required: true },
     status: { type: String, enum: ['new', 'read', 'archived'], default: 'new' },
     replies: [ReplySchema],
+    hiddenFor: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   },
   { timestamps: true }
 );

@@ -67,7 +67,18 @@ export default function Navbar({ showSearch = false, onSearch }) {
                 >
                   My Dashboard
                 </button>
-                <button onClick={handleLogout} className="text-sm text-hope-gray-600 dark:text-hope-gray-400 hover:text-primary">
+                {/* small-screen user icon that opens dashboard */}
+                <button
+                  onClick={() => navigate('/dashboard')}
+                  className="md:hidden flex items-center justify-center w-9 h-9 rounded-full bg-hope-gray-100 dark:bg-hope-gray-700 hover:bg-hope-gray-200"
+                  aria-label="Open Dashboard"
+                  title="Dashboard"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-hope-gray-700 dark:text-hope-gray-200">
+                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                  </svg>
+                </button>
+                <button onClick={handleLogout} className="hidden md:inline-flex text-sm text-hope-gray-600 dark:text-hope-gray-400 hover:text-primary">
                   Logout
                 </button>
               </>
