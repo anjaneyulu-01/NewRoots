@@ -26,41 +26,89 @@ export default function LocationPicker({ onSelectLocation, onCancel, initialLoca
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
 
+    // helper: check if container is visible (avoid display:none issues)
+    const isContainerVisible = () => {
+      try {
+        return !!(mapContainer.current && mapContainer.current.offsetWidth && mapContainer.current.offsetHeight);
+      } catch (e) {
+        return false;
+      }
+    };
+
     // Create map with default center (NYC as fallback)
-    map.current = L.map(mapContainer.current).setView([40.7128, -74.006], 13);
+    try {
+      map.current = L.map(mapContainer.current).setView([40.7128, -74.006], 13);
 
-    // Add OpenStreetMap tiles
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors',
-      maxZoom: 19,
-    }).addTo(map.current);
+      // Add OpenStreetMap tiles
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 19,
+      }).addTo(map.current);
 
-    // Try to get user's location
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          if (map.current) {
-            map.current.setView([latitude, longitude], 15);
-            placeMarker(latitude, longitude);
+      // Invalidate size shortly after creation to avoid _leaflet_pos issues
+      setTimeout(() => {
+        if (map.current && isContainerVisible() && typeof map.current.invalidateSize === 'function') {
+          try {
+            map.current.invalidateSize();
+          } catch (e) {
+            console.warn('invalidateSize failed', e);
           }
-        },
-        () => {
-          console.log('Location permission denied or unavailable');
-          // Map will use default center
         }
-      );
-    }
+      }, 200);
 
-    // Handle map clicks
-    map.current.on('click', (e) => {
-      const { lat, lng } = e.latlng;
-      placeMarker(lat, lng);
-    });
+      // Try to get user's location
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords;
+            if (map.current && isContainerVisible()) {
+              try {
+                map.current.setView([latitude, longitude], 15);
+                placeMarker(latitude, longitude);
+              } catch (e) {
+                console.warn('Map setView/placeMarker skipped:', e);
+              }
+            }
+          },
+          () => {
+            console.log('Location permission denied or unavailable');
+            // Map will use default center
+          }
+        );
+      }
+
+      // Handle map clicks (guarded)
+      if (map.current && typeof map.current.on === 'function') {
+        map.current.on('click', (e) => {
+          if (!map.current) return;
+          const { lat, lng } = e.latlng || {};
+          if (lat && lng) placeMarker(lat, lng);
+        });
+      }
+    } catch (err) {
+      console.error('Leaflet map init error:', err);
+      if (map.current) {
+        try {
+          map.current.remove();
+        } catch (e) {
+          // ignore
+        }
+        map.current = null;
+      }
+    }
 
     return () => {
       if (map.current) {
-        map.current.remove();
+        try {
+          map.current.off();
+        } catch (e) {
+          // ignore
+        }
+        try {
+          map.current.remove();
+        } catch (e) {
+          // ignore
+        }
         map.current = null;
       }
     };
@@ -68,30 +116,57 @@ export default function LocationPicker({ onSelectLocation, onCancel, initialLoca
 
   // Place or update marker
   const placeMarker = async (lat, lng) => {
-    if (marker.current) {
-      marker.current.setLatLng([lat, lng]);
-    } else {
-      marker.current = L.marker([lat, lng], {
-        draggable: true,
-      }).addTo(map.current);
+    try {
+      if (marker.current) {
+        try {
+          marker.current.setLatLng([lat, lng]);
+        } catch (e) {
+          console.warn('marker.setLatLng failed', e);
+        }
+      } else {
+        if (!map.current) {
+          // create a temporary marker without adding to map if map isn't available
+          marker.current = L.marker([lat, lng], { draggable: true });
+        } else {
+          marker.current = L.marker([lat, lng], { draggable: true }).addTo(map.current);
 
-      // Update location when marker is dragged
-      marker.current.on('dragend', async () => {
-        const { lat: newLat, lng: newLng } = marker.current.getLatLng();
-        const addr = await reverseGeocode(newLat, newLng);
-        setSelectedLocation({ lat: newLat, lng: newLng, address: addr });
-      });
+          // Update location when marker is dragged
+          marker.current.on('dragend', async () => {
+            try {
+              if (!marker.current) return;
+              const pos = marker.current.getLatLng();
+              if (!pos) return;
+              const { lat: newLat, lng: newLng } = pos;
+              const addr = await reverseGeocode(newLat, newLng);
+              setSelectedLocation({ lat: newLat, lng: newLng, address: addr });
+            } catch (e) {
+              console.warn('marker dragend handler error', e);
+            }
+          });
+        }
+      }
+
+      // Center map on marker if map is visible
+      if (map.current) {
+        try {
+          if (mapContainer.current && mapContainer.current.offsetWidth && mapContainer.current.offsetHeight) {
+            map.current.setView([lat, lng], 15);
+          }
+        } catch (e) {
+          console.warn('map.setView failed', e);
+        }
+      }
+
+      // Get address from coordinates and update selection (guarded)
+      const addr = await reverseGeocode(lat, lng);
+      setSelectedLocation({ lat, lng, address: addr });
+      return addr;
+    } catch (err) {
+      console.error('placeMarker error:', err);
+      const fallback = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+      setSelectedLocation({ lat, lng, address: fallback });
+      return fallback;
     }
-
-    // Center map on marker
-    if (map.current) {
-      map.current.setView([lat, lng], 15);
-    }
-
-    // Get address from coordinates and update selection
-    const addr = await reverseGeocode(lat, lng);
-    setSelectedLocation({ lat, lng, address: addr });
-    return addr;
   };
 
   // Reverse geocode coordinates to address using Nominatim
@@ -110,9 +185,12 @@ export default function LocationPicker({ onSelectLocation, onCancel, initialLoca
       if (!response.ok) throw new Error('Reverse geocoding failed');
 
       const data = await response.json();
-      const fullAddress = data.address?.road
-        ? `${data.address.road}, ${data.address.city || data.address.town || ''}, ${data.address.country || ''}`
-        : data.display_name || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+      const street = data?.address?.road || data?.address?.pedestrian || data?.address?.path || '';
+      const locality = data?.address?.city || data?.address?.town || data?.address?.village || '';
+      const country = data?.address?.country || '';
+      const fullAddress = street
+        ? `${street}${locality ? `, ${locality}` : ''}${country ? `, ${country}` : ''}`
+        : data?.display_name || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
 
       setAddress(fullAddress);
       setSelectedLocation({ lat, lng, address: fullAddress });
@@ -147,7 +225,17 @@ export default function LocationPicker({ onSelectLocation, onCancel, initialLoca
 
       if (!response.ok) throw new Error('Search failed');
       const data = await response.json();
-      setSearchResults(data);
+      // Ensure array and guard fields used in UI
+      const list = Array.isArray(data) ? data : [];
+      setSearchResults(
+        list.map((item) => ({
+          lat: item?.lat,
+          lon: item?.lon,
+          display_name: item?.display_name || item?.name || '',
+          name: item?.name || item?.display_name || '',
+          raw: item,
+        }))
+      );
     } catch (error) {
       console.error('Search error:', error);
       setSearchResults([]);
