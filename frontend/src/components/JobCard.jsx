@@ -1,6 +1,8 @@
 import React from 'react';
 
 export default function JobCard({ job, onContact, onApply }) {
+  const posterId = job.poster?._id || job.postedBy || job.poster;
+
   return (
     <div className="gig-card group">
       {/* Image/header */}
@@ -43,17 +45,18 @@ export default function JobCard({ job, onContact, onApply }) {
           )}
           <div className="flex gap-2">
             <button
-              onClick={() => onApply && onApply(job._id)}
+              onClick={() => onApply && onApply(job._id, posterId)}
               className="px-4 py-1.5 bg-primary hover:bg-hope-green-dark text-white text-sm font-medium rounded-md transition-colors duration-150"
             >
               Apply Now
             </button>
-            <button
-              onClick={() => onContact && onContact(job._id)}
-              className="px-4 py-1.5 bg-hope-gray-800 hover:bg-hope-gray-900 text-white text-sm font-medium rounded-md transition-colors duration-150 dark:bg-hope-gray-700 dark:hover:bg-hope-gray-600"
-            >
-              Contact
-            </button>
+              <button
+                onClick={() => onContact && onContact(job._id, posterId)}
+                className="px-4 py-1.5 bg-hope-gray-800 hover:bg-hope-gray-900 text-white text-sm font-medium rounded-md transition-colors duration-150 dark:bg-hope-gray-700 dark:hover:bg-hope-gray-600"
+              >
+                Contact
+              </button>
+            
           </div>
         </div>
       </div>

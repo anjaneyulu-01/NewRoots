@@ -1,6 +1,8 @@
 import React from 'react';
 
 export default function HousingCard({ housing, onContact, onApply }) {
+  const ownerId = housing.poster?._id || housing.postedBy || housing.poster;
+
   return (
     <div className="gig-card group">
       {/* Image/header */}
@@ -35,17 +37,18 @@ export default function HousingCard({ housing, onContact, onApply }) {
           </div>
           <div className="flex gap-2">
             <button
-              onClick={() => onApply && onApply(housing._id)}
+              onClick={() => onApply && onApply(housing._id, ownerId)}
               className="px-4 py-1.5 bg-primary hover:bg-hope-green-dark text-white text-sm font-medium rounded-md transition-colors duration-150"
             >
               Apply Now
             </button>
-            <button
-              onClick={() => onContact && onContact(housing._id)}
-              className="px-4 py-1.5 bg-hope-gray-800 hover:bg-hope-gray-900 text-white text-sm font-medium rounded-md transition-colors duration-150 dark:bg-hope-gray-700 dark:hover:bg-hope-gray-600"
-            >
-              Contact
-            </button>
+              <button
+                onClick={() => onContact && onContact(housing._id, ownerId)}
+                className="px-4 py-1.5 bg-hope-gray-800 hover:bg-hope-gray-900 text-white text-sm font-medium rounded-md transition-colors duration-150 dark:bg-hope-gray-700 dark:hover:bg-hope-gray-600"
+              >
+                Contact
+              </button>
+            
           </div>
         </div>
       </div>

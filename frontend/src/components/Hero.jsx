@@ -9,7 +9,7 @@ export default function Hero() {
             Find Support, Build Your Future
           </h1>
           <p className="text-lg md:text-xl text-white/90 mb-8 max-w-3xl mx-auto">
-            Connecting new migrants with community events, job opportunities, and affordable housing
+            Start fresh in a new city with trust, opportunities, and community.
           </p>
           
           {/* Popular Categories */}

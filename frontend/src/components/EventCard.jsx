@@ -9,6 +9,8 @@ export default function EventCard({ event, onApply, onContact }) {
     });
   };
 
+  const creatorId = event.creator?._id || event.createdBy || event.creator;
+
   return (
     <div className="gig-card group">
       {/* Image */}
@@ -57,17 +59,18 @@ export default function EventCard({ event, onApply, onContact }) {
           </div>
           <div className="flex gap-2">
             <button
-              onClick={() => onApply && onApply(event._id)}
+              onClick={() => onApply && onApply(event._id, creatorId)}
               className="px-4 py-1.5 bg-primary hover:bg-hope-green-dark text-white text-sm font-medium rounded-md transition-colors duration-150"
             >
               Apply Now
             </button>
-            <button
-              onClick={() => onContact && onContact(event._id)}
-              className="px-4 py-1.5 bg-hope-gray-800 hover:bg-hope-gray-900 text-white text-sm font-medium rounded-md transition-colors duration-150 dark:bg-hope-gray-700 dark:hover:bg-hope-gray-600"
-            >
-              Contact
-            </button>
+              <button
+                onClick={() => onContact && onContact(event._id, creatorId)}
+                className="px-4 py-1.5 bg-hope-gray-800 hover:bg-hope-gray-900 text-white text-sm font-medium rounded-md transition-colors duration-150 dark:bg-hope-gray-700 dark:hover:bg-hope-gray-600"
+              >
+                Contact
+              </button>
+            
           </div>
         </div>
       </div>

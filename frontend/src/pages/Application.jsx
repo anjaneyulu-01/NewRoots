@@ -179,11 +179,26 @@ export default function Application() {
     }
   };
 
-  const openApplyModal = (type, id) => {
-    setApplyTarget({ type, id });
+  const openApplyModal = (type, id, ownerId = null) => {
+    setApplyTarget({ type, id, ownerId });
     setApplyForm({ fullName: '', phone: '', dob: '', details: '', amount: '' });
     setApplyError('');
     setShowApplyModal(true);
+  };
+
+  const getCurrentUserIdFromToken = () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return null;
+      const parts = token.split('.');
+      if (parts.length < 2) return null;
+      const payload = parts[1];
+      const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+      const obj = JSON.parse(decodeURIComponent(escape(json)));
+      return obj.id || obj._id || obj.sub || obj.userId || (obj.user && (obj.user.id || obj.user._id)) || null;
+    } catch (e) {
+      return null;
+    }
   };
 
   const submitApplication = async (e) => {
@@ -192,6 +207,11 @@ export default function Application() {
     if (!applyForm.fullName || applyForm.fullName.trim().length < 2) { setApplyError('Full name required'); return; }
     if (!applyForm.phone || applyForm.phone.trim().length < 6) { setApplyError('Phone number required'); return; }
     try {
+      const currentUserId = getCurrentUserIdFromToken();
+      if (applyTarget?.ownerId && currentUserId && applyTarget.ownerId.toString() === currentUserId.toString()) {
+        setApplyError('You cannot apply to your own listing');
+        return;
+      }
       const payload = { form: { fullName: applyForm.fullName, phone: applyForm.phone, dob: applyForm.dob, details: applyForm.details }, amount: applyForm.amount ? Number(applyForm.amount) : 0 };
       // support applying to events, jobs, and housing
       const targetType = applyTarget?.type || 'events';
@@ -227,8 +247,8 @@ export default function Application() {
     setShowLocationPicker(true);
   };
 
-  const handleContactClick = (resourceId, resourceType) => {
-    setContactModal({ resourceType, resourceId });
+  const handleContactClick = (resourceId, resourceType, ownerId) => {
+    setContactModal({ resourceType, resourceId, ownerId });
     setShowContactModal(true);
   };
 
@@ -314,8 +334,8 @@ export default function Application() {
                 <EventCard 
                   key={event._id} 
                   event={event} 
-                    onApply={() => openApplyModal(event._id)}
-                  onContact={(id) => handleContactClick(id, 'Event')}
+                    onApply={(id, ownerId) => openApplyModal('events', id, ownerId)}
+                  onContact={(id, ownerId) => handleContactClick(id, 'Event', ownerId)}
                 />
               ))}
             </div>
@@ -338,8 +358,8 @@ export default function Application() {
                 <JobCard 
                   key={job._id} 
                   job={job}
-                  onApply={() => openApplyModal('jobs', job._id)}
-                  onContact={(id) => handleContactClick(id, 'Job')}
+                  onApply={(id, ownerId) => openApplyModal('jobs', id, ownerId)}
+                  onContact={(id, ownerId) => handleContactClick(id, 'Job', ownerId)}
                 />
               ))}
             </div>
@@ -362,8 +382,8 @@ export default function Application() {
                 <HousingCard 
                   key={house._id} 
                   housing={house}
-                  onApply={() => openApplyModal('housing', house._id)}
-                  onContact={(id) => handleContactClick(id, 'Housing')}
+                  onApply={(id, ownerId) => openApplyModal('housing', id, ownerId)}
+                  onContact={(id, ownerId) => handleContactClick(id, 'Housing', ownerId)}
                 />
               ))}
             </div>
@@ -614,6 +634,13 @@ export default function Application() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => setShowApplyModal(false)}>
           <div className="bg-white dark:bg-hope-gray-800 rounded-2xl max-w-md w-full p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-bold mb-3">Apply to Event</h3>
+            {(() => {
+              const currentUserId = getCurrentUserIdFromToken();
+              const isSelfApply = applyTarget?.ownerId && currentUserId && applyTarget.ownerId.toString() === currentUserId.toString();
+              return isSelfApply ? (
+                <div className="p-3 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 rounded mb-3 text-sm">You cannot apply to your own listing.</div>
+              ) : null;
+            })()}
             <form onSubmit={submitApplication} className="space-y-3">
               <input className="input-fiverr" placeholder="Full name" value={applyForm.fullName} onChange={(e) => setApplyForm({ ...applyForm, fullName: e.target.value })} required />
               <input className="input-fiverr" placeholder="Phone" value={applyForm.phone} onChange={(e) => setApplyForm({ ...applyForm, phone: e.target.value })} required />
@@ -623,7 +650,7 @@ export default function Application() {
               {applyError && <div className="text-sm text-red-600">{applyError}</div>}
               <div className="flex gap-3">
                 <button type="button" onClick={() => setShowApplyModal(false)} className="flex-1 btn-secondary">Cancel</button>
-                <button type="submit" className="flex-1 btn-primary">Submit Application</button>
+                <button type="submit" className="flex-1 btn-primary" disabled={applyTarget?.ownerId && getCurrentUserIdFromToken() && applyTarget.ownerId.toString() === getCurrentUserIdFromToken().toString()}>Submit Application</button>
               </div>
             </form>
           </div>
@@ -650,6 +677,7 @@ export default function Application() {
         <ContactModal
           resourceType={contactModal.resourceType}
           resourceId={contactModal.resourceId}
+          ownerId={contactModal.ownerId}
           onClose={() => setShowContactModal(false)}
           onSuccess={() => alert('Message sent successfully!')}
         />

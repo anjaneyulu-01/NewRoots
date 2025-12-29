@@ -8,10 +8,28 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-export default function ContactModal({ resourceType, resourceId, onClose, onSuccess }) {
+export default function ContactModal({ resourceType, resourceId, ownerId, onClose, onSuccess }) {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const getCurrentUserIdFromToken = () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return null;
+      const parts = token.split('.');
+      if (parts.length < 2) return null;
+      const payload = parts[1];
+      const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+      const obj = JSON.parse(decodeURIComponent(escape(json)));
+      return obj.id || obj._id || obj.sub || obj.userId || (obj.user && (obj.user.id || obj.user._id)) || null;
+    } catch (e) {
+      return null;
+    }
+  };
+
+  const currentUserId = getCurrentUserIdFromToken();
+  const isSelf = ownerId && currentUserId && ownerId.toString() === currentUserId.toString();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -63,23 +81,29 @@ export default function ContactModal({ resourceType, resourceId, onClose, onSucc
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-hope-gray-700 dark:text-hope-gray-300 mb-2">
-              Your Message
-            </label>
-            <textarea
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="Write your message... (max 2000 characters)"
-              maxLength={2000}
-              rows={5}
-              className="input-fiverr text-sm resize-none"
-              required
-            />
-            <div className="text-xs text-hope-gray-500 mt-1">
-              {message.length}/2000
+          {isSelf ? (
+            <div className="p-4 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 rounded-lg text-sm">
+              You cannot send a message to yourself.
             </div>
-          </div>
+          ) : (
+            <div>
+              <label className="block text-sm font-medium text-hope-gray-700 dark:text-hope-gray-300 mb-2">
+                Your Message
+              </label>
+              <textarea
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Write your message... (max 2000 characters)"
+                maxLength={2000}
+                rows={5}
+                className="input-fiverr text-sm resize-none"
+                required
+              />
+              <div className="text-xs text-hope-gray-500 mt-1">
+                {message.length}/2000
+              </div>
+            </div>
+          )}
 
           {error && (
             <div className="p-3 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-lg text-sm">
@@ -97,7 +121,7 @@ export default function ContactModal({ resourceType, resourceId, onClose, onSucc
             </button>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || isSelf}
               className="flex-1 btn-primary disabled:opacity-60"
             >
               {loading ? 'Sending...' : 'Send Message'}
