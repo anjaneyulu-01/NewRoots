@@ -423,14 +423,14 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <StatCard
             title="Total Earnings"
-            value={`$${earnings.totals.total.toFixed(0)}`}
-            subtitle={`$${earnings.totals.paid.toFixed(2)} paid`}
+            value={`$${(earnings?.totals?.total ?? 0).toFixed(0)}`}
+            subtitle={`$${(earnings?.totals?.paid ?? 0).toFixed(2)} paid`}
             icon="💰"
             trend={12}
           />
           <StatCard
             title="Pending Earnings"
-            value={`$${earnings.totals.pending.toFixed(0)}`}
+            value={`$${(earnings?.totals?.pending ?? 0).toFixed(0)}`}
             subtitle="Awaiting approval"
             icon="⏳"
           />
