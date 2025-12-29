@@ -1,16 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import Navbar from '../components/Navbar.jsx';
-import axios from 'axios';
+import api from '../api';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-
-const api = axios.create();
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
 
 function StatCard({ title, value, subtitle, icon, trend }) {
   return (
@@ -78,32 +71,35 @@ export default function Dashboard() {
     let sent = [];
 
     try {
-      const earn = await api.get('/api/earnings/me').then((r) => r.data).catch(() => null);
-      const myEv = await api.get('/api/events/me', { params: force ? { t: Date.now() } : {} }).then((r) => r.data).catch(() => null);
-      const apps = await api.get('/api/applications/me').then((r) => r.data).catch(() => null);
-      const incomingApps = await api.get('/api/applications/incoming').then((r) => r.data).catch(() => null);
-      const house = await api.get('/api/housing').then((r) => r.data).catch((e) => {
-        if (e?.response?.status === 401) return { housing: [] };
-        return null;
-      });
-      const job = await api.get('/api/jobs').then((r) => r.data).catch((e) => {
-        if (e?.response?.status === 401) return { jobs: [] };
-        return null;
-      });
-      const myJ = await api.get('/api/jobs/me', { params: force ? { t: Date.now() } : {} }).then((r) => r.data).catch(() => null);
-      const myH = await api.get('/api/housing/me', { params: force ? { t: Date.now() } : {} }).then((r) => r.data).catch(() => null);
-      contacts = await api.get('/api/contact/me').then((r) => r.data.messages).catch(() => []);
-      sent = await api.get('/api/contact/sent').then((r) => r.data.messages).catch(() => []);
+      // Use centralized api instance; let global response interceptor handle 401s
+      const earnRes = await api.get('/api/earnings/me');
+      earnData = earnRes.data;
 
-      if (earn) earnData = earn;
-      if (myEv) myEvData = myEv;
-      if (apps) appsData = apps;
-      if (incomingApps) incomingAppsData = incomingApps;
-      if (house) houseData = house;
-      if (job) jobData = job;
-      if (myJ) myJData = myJ;
-      if (myH) myHData = myH;
+      const myEvRes = await api.get('/api/events/me', { params: force ? { t: Date.now() } : {} });
+      myEvData = myEvRes.data;
+
+      const appsRes = await api.get('/api/applications/me');
+      appsData = appsRes.data;
+
+      const incomingAppsRes = await api.get('/api/applications/incoming');
+      incomingAppsData = incomingAppsRes.data;
+
+      const houseRes = await api.get('/api/housing');
+      houseData = houseRes.data;
+
+      const jobRes = await api.get('/api/jobs');
+      jobData = jobRes.data;
+
+      const myJRes = await api.get('/api/jobs/me', { params: force ? { t: Date.now() } : {} });
+      myJData = myJRes.data;
+
+      const myHRes = await api.get('/api/housing/me', { params: force ? { t: Date.now() } : {} });
+      myHData = myHRes.data;
+
+      contacts = (await api.get('/api/contact/me')).data.messages || [];
+      sent = (await api.get('/api/contact/sent')).data.messages || [];
     } catch (err) {
+      // Global interceptor will redirect on 401. Log other errors and fall back to defaults set above.
       console.error('Failed to load dashboard data', err);
     }
 
