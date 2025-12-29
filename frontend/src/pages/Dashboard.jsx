@@ -889,6 +889,33 @@ export default function Dashboard() {
                                 </button>
                               </>
                             )}
+                            {/* Delete notification for this application */}
+                            <button
+                              onClick={async () => {
+                                if (!confirm('Delete this notification? This will remove the application record.')) return;
+                                try {
+                                  try {
+                                    await api.delete(`/api/events/${a.event._1d || a.event._id}/applications/${a._id}`);
+                                  } catch (e) {
+                                    // if DELETE specifically returned 404 or is blocked, try POST fallback
+                                    if (e.response?.status === 404 || e.response?.status === 405 || !e.response) {
+                                      await api.post(`/api/events/${a.event._id}/applications/${a._id}/delete`);
+                                    } else {
+                                      throw e;
+                                    }
+                                  }
+                                  await loadDashboardData(true);
+                                } catch (err) {
+                                  console.error('Failed to delete application', err);
+                                  const server = err.response?.data;
+                                  const msg = server?.error || server?.details || err.message || 'Failed to delete notification';
+                                  alert(msg);
+                                }
+                              }}
+                              className="px-3 py-1 bg-hope-gray-200 text-hope-gray-800 rounded"
+                            >
+                              Delete
+                            </button>
                           </div>
                         </td>
                       </tr>

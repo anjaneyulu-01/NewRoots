@@ -138,6 +138,36 @@ router.post('/:id/applications/:appId/reject', requireAuth, requireEventOwner, a
   res.json({ application: app });
 });
 
+// Delete an application (owner only) - removes the notification/application
+router.delete('/:id/applications/:appId', requireAuth, requireEventOwner, async (req, res) => {
+  try {
+    const app = await Application.findById(req.params.appId);
+    if (!app || app.event.toString() !== req.params.id) return res.status(404).json({ error: 'Application not found' });
+    await app.deleteOne();
+    console.log(`Application ${req.params.appId} deleted by owner ${req.user.id} for event ${req.params.id}`);
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('delete application error', err && err.stack ? err.stack : err);
+    const details = process.env.NODE_ENV !== 'production' && err && err.message ? err.message : undefined;
+    return res.status(500).json({ error: 'Failed to delete application', details });
+  }
+});
+
+// POST fallback to delete an application (for proxies/clients that block DELETE)
+router.post('/:id/applications/:appId/delete', requireAuth, requireEventOwner, async (req, res) => {
+  try {
+    const app = await Application.findById(req.params.appId);
+    if (!app || app.event.toString() !== req.params.id) return res.status(404).json({ error: 'Application not found' });
+    await app.deleteOne();
+    console.log(`Application (POST delete) ${req.params.appId} deleted by owner ${req.user.id} for event ${req.params.id}`);
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('delete application (post) error', err && err.stack ? err.stack : err);
+    const details = process.env.NODE_ENV !== 'production' && err && err.message ? err.message : undefined;
+    return res.status(500).json({ error: 'Failed to delete application', details });
+  }
+});
+
 router.post('/:id/applications/:appId/payment', requireAuth, requireEventOwner, async (req, res) => {
   const { status } = req.body; // 'pending' | 'paid'
   if (!['pending', 'paid'].includes(status)) return res.status(400).json({ error: 'Invalid status' });
