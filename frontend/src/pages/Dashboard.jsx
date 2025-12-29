@@ -299,12 +299,17 @@ export default function Dashboard() {
   });
 
   const pendingApprovals = incoming.filter(a => a.status === 'pending').length;
-  const totalApplicants = myEventCounts.reduce((sum, c) => sum + c.applicants, 0);
+  const totalApplicants = Array.isArray(myEventCounts)
+    ? myEventCounts.reduce((sum, c) => sum + (c?.applicants ?? 0), 0)
+    : 0;
 
   // Helper component to fit bounds after data load
   function FitMarkersBounds({ bounds }) {
     const map = useMap();
     useEffect(() => {
+      // Guard against using a map instance that is not mounted
+      if (!map || !map._container) return;
+
       // Ensure map size is correct when the component mounts
       try {
         if (typeof map.invalidateSize === 'function') {
@@ -622,7 +627,7 @@ export default function Dashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-hope-gray-100 dark:divide-hope-gray-700">
-                    {earnings.perEvent.map((e) => (
+                    {Array.isArray(earnings?.perEvent) && earnings.perEvent.map((e) => (
                       <tr key={e.eventId} className="hover-row">
                         <td className="p-4 text-hope-gray-900 dark:text-hope-gray-100">{e.title}</td>
                         <td className="p-4 text-right text-primary font-semibold">${e.paid.toFixed(2)}</td>
