@@ -20,28 +20,39 @@ const router = express.Router();
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-// configure nodemailer transporter from env (no hardcoded defaults)
+// configure nodemailer transporter from env (prefer Gmail app-password when provided)
 const smtpHost = process.env.SMTP_HOST;
 const smtpPort = process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : undefined;
 const smtpSecure = process.env.SMTP_SECURE === 'true';
-const smtpAuth = process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined;
+const smtpUser = process.env.SMTP_USER || process.env.SMTP_EMAIL;
+const smtpPass = process.env.SMTP_PASS;
 
 let transporter;
-if (smtpHost) {
+if (process.env.SMTP_EMAIL && process.env.SMTP_PASS) {
+  // Prefer Gmail/App-password style config when provided
+  transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.SMTP_EMAIL,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+  console.log('Using Gmail service for SMTP via SMTP_EMAIL');
+} else if (smtpHost) {
   transporter = nodemailer.createTransport({
     host: smtpHost,
     port: smtpPort,
     secure: smtpSecure,
-    auth: smtpAuth,
+    auth: smtpUser ? { user: smtpUser, pass: smtpPass } : undefined,
     connectionTimeout: 5000,
     greetingTimeout: 5000,
     socketTimeout: 5000,
   });
-  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-    console.warn('SMTP_USER or SMTP_PASS is not set. Transport may fail.');
+  if (!smtpUser || !smtpPass) {
+    console.warn('SMTP user or pass is not set. Transport may fail.');
   }
 } else {
-  console.warn('SMTP_HOST is not set. Nodemailer will attempt connection and likely fall back to Ethereal in development.');
+  console.warn('No SMTP settings provided. Nodemailer will attempt connection and likely fall back to Ethereal in development.');
   transporter = nodemailer.createTransport({});
 }
 
@@ -51,7 +62,7 @@ if (smtpHost) {
     await transporter.verify();
     console.log('SMTP transporter verified');
   } catch (err) {
-    console.error('SMTP transporter verification failed:', err && err.stack ? err.stack : err);
+    console.error('SMTP transporter verification failed:', err);
     if (process.env.NODE_ENV !== 'production') {
       try {
         const testAccount = await nodemailer.createTestAccount();
@@ -64,7 +75,7 @@ if (smtpHost) {
         console.log('Using Ethereal test account for email (development).');
         console.log(`Ethereal account user=${testAccount.user} pass=${testAccount.pass}`);
       } catch (e) {
-        console.error('Failed to create Ethereal test account:', e && e.stack ? e.stack : e);
+        console.error('Failed to create Ethereal test account:', e);
       }
     }
   }
@@ -128,7 +139,10 @@ router.post('/send-email-otp', async (req, res) => {
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
   try {
     await EmailOtp.findOneAndUpdate({ email }, { code, expiresAt }, { upsert: true, new: true });
-    const from = process.env.EMAIL_FROM || process.env.SMTP_USER || 'no-reply@newroots.local';
+    // Ensure RFC-compliant From using SMTP_EMAIL when available
+    const smtpEmail = process.env.SMTP_EMAIL || process.env.SMTP_USER || null;
+    const fromEnv = process.env.SMTP_FROM || process.env.EMAIL_FROM;
+    const from = fromEnv || (smtpEmail ? `NewRoots <${smtpEmail}>` : 'no-reply@newroots.local');
     const mailOpts = {
       from,
       to: email,
@@ -142,9 +156,31 @@ router.post('/send-email-otp', async (req, res) => {
     if (preview) console.log('Preview email URL:', preview);
     return res.json({ success: true, message: 'OTP sent', preview: preview || null });
   } catch (err) {
-    console.error('send-email-otp error', err && err.stack ? err.stack : err);
+    console.error('SEND OTP ERROR:', err);
     const details = process.env.NODE_ENV !== 'production' && err && err.message ? err.message : undefined;
-    return res.status(500).json({ error: 'Failed to send OTP', details });
+    return res.status(500).json({ success: false, error: 'Failed to send OTP', details });
+  }
+});
+
+// Temporary health/test route to verify SMTP from production
+router.get('/test-email', async (req, res) => {
+  const to = req.query.to || process.env.SMTP_EMAIL || null;
+  if (!to) return res.status(400).json({ success: false, error: 'Missing `to` query parameter or SMTP_EMAIL env' });
+  try {
+    const smtpEmail = process.env.SMTP_EMAIL || process.env.SMTP_USER || null;
+    const fromEnv = process.env.SMTP_FROM || process.env.EMAIL_FROM;
+    const from = fromEnv || (smtpEmail ? `NewRoots <${smtpEmail}>` : 'no-reply@newroots.local');
+    const info = await transporter.sendMail({
+      from,
+      to,
+      subject: 'NewRoots test email',
+      text: 'This is a test email from NewRoots',
+    });
+    const preview = nodemailer.getTestMessageUrl(info);
+    return res.json({ success: true, preview: preview || null, info: info.response || info });
+  } catch (err) {
+    console.error('TEST EMAIL ERROR:', err);
+    return res.status(500).json({ success: false, error: 'Failed to send test email', details: err && err.message });
   }
 });
 
