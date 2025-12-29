@@ -359,7 +359,7 @@ export default function Register() {
           <div className="mt-6 text-center">
             <p className="text-sm text-hope-gray-600 dark:text-hope-gray-400">
               Already have an account?{' '}
-              <a href="/login" className="text-primary hover:text-hope-green-dark font-semibold transition-colors">
+              <a href="#/login" className="text-primary hover:text-hope-green-dark font-semibold transition-colors">
                 Sign in
               </a>
             </p>
