@@ -241,7 +241,7 @@ export default function Dashboard() {
     if (!replyText.trim() || !selectedConversation) return;
     try {
       // Get the conversation with selected user
-      const allContacts = [...incomingContacts, ...sentMessages];
+      const allContacts = [...(Array.isArray(incomingContacts) ? incomingContacts : []), ...(Array.isArray(sentMessages) ? sentMessages : [])];
       const conversation = allContacts.find(
         (c) => c.fromUser?._id === selectedConversation || c.toUser?._id === selectedConversation
       );
@@ -267,7 +267,7 @@ export default function Dashboard() {
 
       // Mark each unread message as read
       await Promise.all(
-        unreadMessages.map((msg) => api.post(`/api/contact/${msg._id}/read`))
+        (Array.isArray(unreadMessages) ? unreadMessages : []).map((msg) => api.post(`/api/contact/${msg._id}/read`))
       );
 
       // Update local state
@@ -298,7 +298,7 @@ export default function Dashboard() {
     shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
   });
 
-  const pendingApprovals = incoming.filter(a => a.status === 'pending').length;
+  const pendingApprovals = Array.isArray(incoming) ? incoming.filter(a => a.status === 'pending').length : 0;
   const totalApplicants = Array.isArray(myEventCounts)
     ? myEventCounts.reduce((sum, c) => sum + (c?.applicants ?? 0), 0)
     : 0;
@@ -428,14 +428,14 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <StatCard
             title="Total Earnings"
-            value={`$${(earnings?.totals?.total ?? 0).toFixed(0)}`}
-            subtitle={`$${(earnings?.totals?.paid ?? 0).toFixed(2)} paid`}
+            value={`$${(Number(earnings?.totals?.total) || 0).toFixed(0)}`}
+            subtitle={`$${(Number(earnings?.totals?.paid) || 0).toFixed(2)} paid`}
             icon="💰"
             trend={12}
           />
           <StatCard
             title="Pending Earnings"
-            value={`$${(earnings?.totals?.pending ?? 0).toFixed(0)}`}
+            value={`$${(Number(earnings?.totals?.pending) || 0).toFixed(0)}`}
             subtitle="Awaiting approval"
             icon="⏳"
           />
@@ -516,7 +516,7 @@ export default function Dashboard() {
                   Recent Activity
                 </h2>
                 <div className="space-y-3">
-                  {myApplications.slice(0, 5).map((app) => (
+                  {Array.isArray(myApplications) && myApplications.slice(0, 5).map((app) => (
                     <div key={app._id} className="flex items-center justify-between py-3 border-b border-hope-gray-100 dark:border-hope-gray-700 last:border-0">
                       <div className="flex items-center space-x-3">
                         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center text-xl">
@@ -568,12 +568,12 @@ export default function Dashboard() {
                         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                         attribution="© OpenStreetMap contributors"
                       />
-                      {housing.map((h) => (
+                      {Array.isArray(housing) && housing.map((h) => (
                         h.lat && h.lng ? (
                           <Marker key={`h-${h._id}`} position={{ lat: h.lat, lng: h.lng }} />
                         ) : null
                       ))}
-                      {jobs.map((j) => (
+                      {Array.isArray(jobs) && jobs.map((j) => (
                         j.lat && j.lng ? (
                           <Marker key={`j-${j._id}`} position={{ lat: j.lat, lng: j.lng }} />
                         ) : null
@@ -588,7 +588,7 @@ export default function Dashboard() {
                       Housing ({housing.length})
                     </h3>
                     <div className="space-y-3 max-h-60 overflow-y-auto">
-                      {housing.slice(0, 3).map((h) => (
+                      {Array.isArray(housing) && housing.slice(0, 3).map((h) => (
                         <div key={h._id} className="flex justify-between items-start">
                           <div>
                             <div className="font-medium text-hope-gray-800 dark:text-hope-gray-200 text-sm">
@@ -630,9 +630,9 @@ export default function Dashboard() {
                     {Array.isArray(earnings?.perEvent) && earnings.perEvent.map((e) => (
                       <tr key={e.eventId} className="hover-row">
                         <td className="p-4 text-hope-gray-900 dark:text-hope-gray-100">{e.title}</td>
-                        <td className="p-4 text-right text-primary font-semibold">${e.paid.toFixed(2)}</td>
-                        <td className="p-4 text-right text-hope-gray-600 dark:text-hope-gray-400">${e.pending.toFixed(2)}</td>
-                        <td className="p-4 text-right font-semibold text-hope-gray-900 dark:text-hope-gray-100">${(e.paid + e.pending).toFixed(2)}</td>
+                        <td className="p-4 text-right text-primary font-semibold">${(Number(e?.paid) || 0).toFixed(2)}</td>
+                        <td className="p-4 text-right text-hope-gray-600 dark:text-hope-gray-400">${(Number(e?.pending) || 0).toFixed(2)}</td>
+                        <td className="p-4 text-right font-semibold text-hope-gray-900 dark:text-hope-gray-100">${(Number(e?.paid || 0) + Number(e?.pending || 0)).toFixed(2)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -694,8 +694,10 @@ export default function Dashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-hope-gray-100 dark:divide-hope-gray-700">
-                    {myEvents.map((ev) => {
-                      const count = myEventCounts.find((c) => c.eventId === ev._id)?.applicants || 0;
+                    {Array.isArray(myEvents) && myEvents.map((ev) => {
+                      const count = Array.isArray(myEventCounts)
+                        ? myEventCounts.find((c) => c.eventId === ev._id)?.applicants ?? 0
+                        : 0;
                       return (
                         <tr key={ev._id} className="hover-row">
                           <td className="p-4">
@@ -750,7 +752,7 @@ export default function Dashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-hope-gray-100 dark:divide-hope-gray-700">
-                    {myJobs.map((j) => (
+                    {Array.isArray(myJobs) && myJobs.map((j) => (
                       <tr key={j._id} className="hover-row">
                         <td className="p-4 font-medium">{j.title}</td>
                         <td className="p-4">{j.company}</td>
@@ -788,7 +790,7 @@ export default function Dashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-hope-gray-100 dark:divide-hope-gray-700">
-                    {myHousing.map((h) => (
+                    {Array.isArray(myHousing) && myHousing.map((h) => (
                       <tr key={h._id} className="hover-row">
                         <td className="p-4 font-medium">{h.title}</td>
                         <td className="p-4">
@@ -833,7 +835,7 @@ export default function Dashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-hope-gray-100 dark:divide-hope-gray-700">
-                    {myApplications.map((a) => (
+                    {Array.isArray(myApplications) && myApplications.map((a) => (
                       <tr key={a._id} className="hover-row">
                         <td className="p-4 font-medium text-hope-gray-900 dark:text-hope-gray-100">{a.event?.title}</td>
                         <td className="p-4 text-hope-gray-600 dark:text-hope-gray-400">{new Date(a.createdAt).toLocaleDateString()}</td>
@@ -887,7 +889,7 @@ export default function Dashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-hope-gray-100 dark:divide-hope-gray-700">
-                    {incoming.map((a) => (
+                    {Array.isArray(incoming) && incoming.map((a) => (
                       <tr key={a._id} className="hover-row">
                         <td className="p-4">
                           <div className="flex items-center space-x-3">
@@ -931,9 +933,9 @@ export default function Dashboard() {
                             <button
                               onClick={async () => {
                                 if (!confirm('Delete this notification? This will remove the application record.')) return;
-                                try {
-                                  try {
-                                    await api.delete(`/api/events/${a.event._1d || a.event._id}/applications/${a._id}`);
+                                    try {
+                                    try {
+                                    await api.delete(`/api/events/${a.event._id || a.event._id}/applications/${a._id}`);
                                   } catch (e) {
                                     // if DELETE specifically returned 404 or is blocked, try POST fallback
                                     if (e.response?.status === 404 || e.response?.status === 405 || !e.response) {
@@ -979,7 +981,7 @@ export default function Dashboard() {
                 </div>
                 
                 <div className="flex-1 overflow-y-auto">
-                  {incomingContacts.length === 0 && sentMessages.length === 0 ? (
+                  {(Array.isArray(incomingContacts) ? incomingContacts.length : 0) === 0 && (Array.isArray(sentMessages) ? sentMessages.length : 0) === 0 ? (
                     <div className="p-6 text-center text-hope-gray-500">
                       <p className="text-sm">No conversations yet</p>
                     </div>
@@ -987,7 +989,7 @@ export default function Dashboard() {
                     <div className="divide-y divide-hope-gray-100 dark:divide-hope-gray-700">
                       {(() => {
                         const conversationMap = new Map();
-                        incomingContacts.forEach((contact) => {
+                        Array.isArray(incomingContacts) && incomingContacts.forEach((contact) => {
                           const userId = contact.fromUser?._id;
                           if (userId) {
                             if (!conversationMap.has(userId) || new Date(contact.createdAt) > new Date(conversationMap.get(userId).createdAt)) {
@@ -995,7 +997,7 @@ export default function Dashboard() {
                             }
                           }
                         });
-                        sentMessages.forEach((contact) => {
+                        Array.isArray(sentMessages) && sentMessages.forEach((contact) => {
                           const userId = contact.toUser?._id;
                           if (userId) {
                             if (!conversationMap.has(userId) || new Date(contact.createdAt) > new Date(conversationMap.get(userId).createdAt)) {
@@ -1008,9 +1010,9 @@ export default function Dashboard() {
                         
                         return sorted.map(([userId, { user }]) => {
                           // Count unread messages from this user
-                            const unreadCount = incomingContacts.filter(c =>
-                              String(c.fromUser?._id) === String(userId) && c.status === 'new'
-                            ).length;
+                            const unreadCount = Array.isArray(incomingContacts)
+                              ? incomingContacts.filter(c => String(c.fromUser?._id) === String(userId) && c.status === 'new').length
+                              : 0;
                           
                           return (
                             <div
@@ -1056,7 +1058,7 @@ export default function Dashboard() {
                     {/* Chat Header */}
                     <div className="p-4 border-b border-hope-gray-200 dark:border-hope-gray-700 flex items-center justify-between gap-3">
                       {(() => {
-                        const allContacts = [...incomingContacts, ...sentMessages];
+                        const allContacts = [...(Array.isArray(incomingContacts) ? incomingContacts : []), ...(Array.isArray(sentMessages) ? sentMessages : [])];
                         const conversation = allContacts.find(
                           (c) => String(c.fromUser?._id) === String(selectedConversation) || String(c.toUser?._id) === String(selectedConversation)
                         );
@@ -1105,7 +1107,7 @@ export default function Dashboard() {
                     {/* Messages Area */}
                     <div className="flex-1 overflow-y-auto p-4 space-y-3">
                       {(() => {
-                        const allContacts = [...incomingContacts, ...sentMessages];
+                        const allContacts = [...(Array.isArray(incomingContacts) ? incomingContacts : []), ...(Array.isArray(sentMessages) ? sentMessages : [])];
                         const conversation = allContacts
                           .filter((c) => String(c.fromUser?._id) === String(selectedConversation) || String(c.toUser?._id) === String(selectedConversation))
                           .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
@@ -1114,7 +1116,7 @@ export default function Dashboard() {
                           return <p className="text-center text-hope-gray-500 mt-8">No messages yet</p>;
                         }
 
-                        return conversation.map((contact) => {
+                        return Array.isArray(conversation) ? conversation.map((contact) => {
                           // If fromUser._id matches selectedConversation, message is FROM other user (left)
                           // If toUser._id matches selectedConversation, message is TO other user, FROM me (right)
                           const isFromOtherUser = String(contact.fromUser?._id) === String(selectedConversation);
@@ -1145,7 +1147,7 @@ export default function Dashboard() {
                               {/* Replies */}
                               {contact.replies && contact.replies.length > 0 && (
                                 <div className="space-y-2">
-                                  {contact.replies.map((reply, idx) => {
+                                  {Array.isArray(contact.replies) && contact.replies.map((reply, idx) => {
                                     const isReplyFromOther = String(reply.fromUser?._id) === String(selectedConversation);
                                     return (
                                       <div key={idx} className={`flex ${isReplyFromOther ? 'justify-start' : 'justify-end'} gap-2 ml-4`}>
