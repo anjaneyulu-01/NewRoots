@@ -305,9 +305,40 @@ export default function Dashboard() {
   function FitMarkersBounds({ bounds }) {
     const map = useMap();
     useEffect(() => {
-      if (bounds) {
-        map.fitBounds(bounds, { padding: [20, 20] });
+      // Ensure map size is correct when the component mounts
+      try {
+        if (typeof map.invalidateSize === 'function') {
+          setTimeout(() => { try { map.invalidateSize(); } catch (e) { /* ignore */ } }, 100);
+        }
+      } catch (e) {
+        // ignore
       }
+
+      if (bounds) {
+        // Cap max zoom when fitting bounds to avoid extreme zoom values
+        try {
+          map.fitBounds(bounds, { padding: [20, 20], maxZoom: 15 });
+        } catch (e) {
+          console.warn('fitBounds failed', e);
+        }
+      }
+
+      // Recalculate size after user zooms to avoid blank tiles from transform issues
+      const onZoomEnd = () => {
+        try {
+          if (typeof map.invalidateSize === 'function') {
+            setTimeout(() => { try { map.invalidateSize(); } catch (e) { /* ignore */ } }, 50);
+          }
+        } catch (e) {
+          // ignore
+        }
+      };
+
+      map.on && map.on('zoomend', onZoomEnd);
+
+      return () => {
+        map.off && map.off('zoomend', onZoomEnd);
+      };
     }, [bounds, map]);
     return null;
   }
@@ -519,6 +550,8 @@ export default function Dashboard() {
                     <MapContainer
                       center={mapCenter}
                       zoom={12}
+                      minZoom={2}
+                      maxZoom={18}
                       zoomControl={true}
                       zoomSnap={0.5}
                       zoomDelta={0.5}
