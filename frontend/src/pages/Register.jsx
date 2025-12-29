@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ThemeToggle from '../components/ThemeToggle.jsx';
-import axios from 'axios';
+import api from '../api';
 
 export default function Register() {
   const [name, setName] = useState('');
@@ -42,7 +42,7 @@ export default function Register() {
           client_id: clientId,
           callback: async (resp) => {
             try {
-              const res = await axios.post('/api/auth/google', { idToken: resp.credential });
+              const res = await api.post('/api/auth/google', { idToken: resp.credential });
               localStorage.setItem('token', res.data.token);
               window.location.href = '/';
             } catch (err) {
@@ -112,7 +112,7 @@ export default function Register() {
       return;
     }
     try {
-      const res = await axios.post('/api/auth/register', { name, email, password });
+      const res = await api.post('/api/auth/register', { name, email, password });
       // registration endpoint currently returns message; if it returns token adjust accordingly
       if (res.data.token) {
         localStorage.setItem('token', res.data.token);
@@ -129,7 +129,7 @@ export default function Register() {
     if (!email) { setOtpError('Enter a valid email'); return; }
     try {
       setSending(true);
-      const res = await axios.post('/api/auth/send-email-otp', { email });
+      const res = await api.post('/api/auth/send-email-otp', { email });
       setEmailSent(true);
       setSentEmailAddress(email);
       setResendCooldown(60);
@@ -157,7 +157,7 @@ export default function Register() {
     try {
       setVerifying(true);
       // call register-with-otp to verify code and create account
-      const res = await axios.post('/api/auth/register-with-otp', { name, email, password, code: otp });
+      const res = await api.post('/api/auth/register-with-otp', { name, email, password, code: otp });
       if (res.status === 201) {
         // success — redirect to login
         window.location.href = '/login';

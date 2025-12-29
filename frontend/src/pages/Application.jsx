@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import api from '../api';
 import Navbar from '../components/Navbar.jsx';
 import Hero from '../components/Hero.jsx';
 import EventCard from '../components/EventCard.jsx';
@@ -9,12 +9,7 @@ import CategoryCard from '../components/CategoryCard.jsx';
 import LocationPicker from '../components/LocationPicker.jsx';
 import ContactModal from '../components/ContactModal.jsx';
 
-const api = axios.create({ baseURL: import.meta.env.VITE_API_BASE_URL });
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
+// centralized `api` imported above
 
 export default function Application() {
   const [events, setEvents] = useState([]);

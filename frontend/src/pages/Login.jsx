@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import api from '../api';
 import ThemeToggle from '../components/ThemeToggle.jsx';
 
 export default function Login() {
@@ -16,7 +16,7 @@ export default function Login() {
     if (!email || !emailRe.test(email)) { setFieldError('Enter a valid email'); return; }
     if (!password || password.length < 6) { setFieldError('Password must be at least 6 characters'); return; }
     try {
-      const res = await axios.post('/api/auth/login', { email, password });
+      const res = await api.post('/api/auth/login', { email, password });
       localStorage.setItem('token', res.data.token);
       window.location.href = '/';
     } catch (err) {
