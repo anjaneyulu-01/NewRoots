@@ -20,7 +20,16 @@ connectDB();
 const app = express();
 
 app.use(cors());
-app.use(express.json());
+// capture raw request body for better diagnostics of JSON parse errors
+app.use(express.json({
+	verify: (req, _res, buf) => {
+		try {
+			req.rawBody = buf && buf.toString ? buf.toString() : '';
+		} catch (e) {
+			req.rawBody = undefined;
+		}
+	},
+}));
 app.use(morgan('dev'));
 app.use('/api', apiLimiter);
 
@@ -40,3 +49,14 @@ const __dirname = path.dirname(__filename);
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 export default app;
+
+// Error handler to surface JSON parse errors with raw payload when debugging
+app.use((err, req, res, next) => {
+	if (err && err.type === 'entity.parse.failed') {
+		console.error('JSON parse error on', req.method, req.originalUrl, 'error:', err.message);
+		console.error('Raw body:', req.rawBody);
+		const payload = process.env.DEBUG_EMAIL === 'true' ? { rawBody: req.rawBody } : undefined;
+		return res.status(400).json({ error: 'Invalid JSON payload', details: err.message, payload });
+	}
+	next(err);
+});
