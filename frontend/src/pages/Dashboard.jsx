@@ -82,8 +82,14 @@ export default function Dashboard() {
       const myEv = await api.get('/api/events/me', { params: force ? { t: Date.now() } : {} }).then((r) => r.data).catch(() => null);
       const apps = await api.get('/api/applications/me').then((r) => r.data).catch(() => null);
       const incomingApps = await api.get('/api/applications/incoming').then((r) => r.data).catch(() => null);
-      const house = await axios.get('/api/housing').then((r) => r.data).catch(() => null);
-      const job = await axios.get('/api/jobs').then((r) => r.data).catch(() => null);
+      const house = await api.get('/api/housing').then((r) => r.data).catch((e) => {
+        if (e?.response?.status === 401) return { housing: [] };
+        return null;
+      });
+      const job = await api.get('/api/jobs').then((r) => r.data).catch((e) => {
+        if (e?.response?.status === 401) return { jobs: [] };
+        return null;
+      });
       const myJ = await api.get('/api/jobs/me', { params: force ? { t: Date.now() } : {} }).then((r) => r.data).catch(() => null);
       const myH = await api.get('/api/housing/me', { params: force ? { t: Date.now() } : {} }).then((r) => r.data).catch(() => null);
       contacts = await api.get('/api/contact/me').then((r) => r.data.messages).catch(() => []);
