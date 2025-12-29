@@ -18,7 +18,14 @@ dotenv.config();
 connectDB();
 
 const app = express();
-
+// Ensure CORS headers are always present (including on error responses)
+app.use((req, res, next) => {
+	res.setHeader('Access-Control-Allow-Origin', '*');
+	res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+	res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+	if (req.method === 'OPTIONS') return res.sendStatus(200);
+	next();
+});
 app.use(cors());
 // capture raw request body for better diagnostics of JSON parse errors
 app.use(express.json({
