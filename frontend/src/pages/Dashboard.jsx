@@ -261,9 +261,9 @@ export default function Dashboard() {
   // Mark messages as read when conversation is opened
   const markMessagesAsRead = async (userId) => {
     try {
-      const unreadMessages = incomingContacts.filter(
-        (c) => c.fromUser?._id === userId && c.status === 'new'
-      );
+      const unreadMessages = Array.isArray(incomingContacts)
+        ? incomingContacts.filter((c) => c.fromUser?._id === userId && c.status === 'new')
+        : [];
 
       // Mark each unread message as read
       await Promise.all(
@@ -495,7 +495,7 @@ export default function Dashboard() {
               className={activeTab === 'inbox' ? 'tab-active' : 'tab'}
             >
               Inbox {(() => {
-                const unreadCount = incomingContacts.filter(c => c.status === 'new').length;
+                const unreadCount = Array.isArray(incomingContacts) ? incomingContacts.filter(c => c.status === 'new').length : 0;
                 return unreadCount > 0 && (
                   <span className="ml-2 px-2 py-0.5 bg-secondary text-white text-xs rounded-full">
                     {unreadCount}
@@ -1108,9 +1108,11 @@ export default function Dashboard() {
                     <div className="flex-1 overflow-y-auto p-4 space-y-3">
                       {(() => {
                         const allContacts = [...(Array.isArray(incomingContacts) ? incomingContacts : []), ...(Array.isArray(sentMessages) ? sentMessages : [])];
-                        const conversation = allContacts
-                          .filter((c) => String(c.fromUser?._id) === String(selectedConversation) || String(c.toUser?._id) === String(selectedConversation))
-                          .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+                        const conversation = Array.isArray(allContacts)
+                          ? allContacts
+                              .filter((c) => String(c.fromUser?._id) === String(selectedConversation) || String(c.toUser?._id) === String(selectedConversation))
+                              .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+                          : [];
 
                         if (conversation.length === 0) {
                           return <p className="text-center text-hope-gray-500 mt-8">No messages yet</p>;
