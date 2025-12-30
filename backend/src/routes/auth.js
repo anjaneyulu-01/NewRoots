@@ -69,7 +69,6 @@ async function sendOtpEmail(address, otp) {
     } catch (smtpErr) {
       console.error('SMTP send failed', smtpErr);
       // fall through to Brevo/Ethereal fallback
-    }
   }
 
   // If Brevo API key not present, either fallback to Ethereal (debug) or throw
