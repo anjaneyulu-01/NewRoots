@@ -74,31 +74,46 @@ router.post('/login', async (req, res) => {
 
 // send email OTP (for registration verification)
 router.post('/send-email-otp', async (req, res) => {
-  const { email } = req.body;
-  if (!email) return res.status(400).json({ error: 'Missing email' });
-  const code = (Math.floor(100000 + Math.random() * 900000)).toString();
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
   try {
+    const { email } = req.body;
+    if (!email) {
+      console.error('[OTP] Missing email in req.body');
+      return res.status(400).json({ error: 'Missing email' });
+    }
+    const code = (Math.floor(100000 + Math.random() * 900000)).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
     await EmailOtp.findOneAndUpdate({ email }, { code, expiresAt }, { upsert: true, new: true });
-    if (process.env.DEBUG_EMAIL === 'true') {
-      try {
-        console.log('DEBUG_EMAIL: will send OTP to', email);
-      } catch (e) {
-        console.warn('DEBUG_EMAIL: failed to log mail debug', e);
-      }
-    }
-    const resp = await sendOtpEmail(email, code);
-    if (process.env.DEBUG_EMAIL === 'true') {
-      return res.json({ success: true, resp });
-    }
-    return res.json({ success: true });
+    await sendOtpEmail(email, code);
+    return res.status(200).json({ success: true });
   } catch (err) {
-    console.error('SEND OTP ERROR:', err);
-    if (process.env.DEBUG_EMAIL === 'true') {
-      return res.status(500).json({ success: false, error: 'Failed to send OTP', details: err && err.message, stack: err && err.stack });
+    console.error('[OTP] SEND OTP ERROR:', err, err && err.stack);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to send OTP',
+      details: err && err.message,
+      stack: err && err.stack,
+    });
+  }
+});
+
+// Temporary test route to isolate SMTP issues
+router.post('/test-email', async (req, res) => {
+  try {
+    const { to } = req.body;
+    if (!to) {
+      console.error('[TEST EMAIL] Missing "to" in req.body');
+      return res.status(400).json({ error: 'Missing to' });
     }
-    const details = process.env.NODE_ENV !== 'production' && err && err.message ? err.message : undefined;
-    return res.status(500).json({ success: false, error: 'Failed to send OTP', details });
+    await sendOtpEmail(to, '123456');
+    return res.status(200).json({ success: true });
+  } catch (err) {
+    console.error('[TEST EMAIL] ERROR:', err, err && err.stack);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to send test email',
+      details: err && err.message,
+      stack: err && err.stack,
+    });
   }
 });
 
