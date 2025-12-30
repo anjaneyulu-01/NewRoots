@@ -150,13 +150,27 @@ router.post('/send-email-otp', async (req, res) => {
       text: `Your verification code is: ${code}. It expires in 10 minutes.`,
       html: `<p>Your verification code is: <strong>${code}</strong></p><p>It expires in 10 minutes.</p>`,
     };
+    if (process.env.DEBUG_EMAIL === 'true') {
+      try {
+        console.log('DEBUG_EMAIL: transporter options', transporter && transporter.options ? transporter.options : 'no-transporter-options');
+        console.log('DEBUG_EMAIL: mail options', { from: mailOpts.from, to: mailOpts.to, subject: mailOpts.subject });
+      } catch (e) {
+        console.warn('DEBUG_EMAIL: failed to log mail options', e);
+      }
+    }
+
     const info = await transporter.sendMail(mailOpts);
     // If using ethereal, log preview URL
     const preview = nodemailer.getTestMessageUrl(info);
     if (preview) console.log('Preview email URL:', preview);
-    return res.json({ success: true, message: 'OTP sent', preview: preview || null });
+    const resp = { success: true, message: 'OTP sent', preview: preview || null };
+    if (process.env.DEBUG_EMAIL === 'true') resp.info = info && (info.response || info);
+    return res.json(resp);
   } catch (err) {
     console.error('SEND OTP ERROR:', err);
+    if (process.env.DEBUG_EMAIL === 'true') {
+      return res.status(500).json({ success: false, error: 'Failed to send OTP', details: err && err.message, stack: err && err.stack });
+    }
     const details = process.env.NODE_ENV !== 'production' && err && err.message ? err.message : undefined;
     return res.status(500).json({ success: false, error: 'Failed to send OTP', details });
   }
