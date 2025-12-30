@@ -4,6 +4,7 @@ dotenv.config();
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import Joi from 'joi';
+import SibApiV3Sdk from 'sib-api-v3-sdk';
 import nodemailer from 'nodemailer';
 import { OAuth2Client } from 'google-auth-library';
 import User from '../models/User.js';
@@ -20,73 +21,81 @@ const router = express.Router();
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-// configure nodemailer transporter from env (prefer Gmail app-password when provided)
-const smtpHost = process.env.SMTP_HOST;
-const smtpPort = process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : undefined;
-const smtpSecure = process.env.SMTP_SECURE === 'true';
-const smtpUser = process.env.SMTP_USER || process.env.SMTP_EMAIL;
-const smtpPass = process.env.SMTP_PASS;
+// Brevo (Sendinblue) will be used for transactional emails only.
+// No SMTP, Nodemailer, or Ethereal logic is present.
 
-let transporter;
-if (process.env.SMTP_EMAIL && process.env.SMTP_PASS) {
-  // Prefer Gmail/App-password style config when provided
-  transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.SMTP_EMAIL,
-      pass: process.env.SMTP_PASS,
-    },
-  });
-  console.log('Using Gmail service for SMTP via SMTP_EMAIL');
-} else if (smtpHost) {
-  // Use safer defaults for common SMTP providers (port 587, STARTTLS)
-  const smtpPortNum = smtpPort || 587;
-  const secureFlag = smtpPortNum === 465 || smtpSecure;
-  transporter = nodemailer.createTransport({
-    host: smtpHost,
-    port: smtpPortNum,
-    secure: secureFlag,
-    auth: smtpUser ? { user: smtpUser, pass: smtpPass } : undefined,
-    // On some hosts (Render) TLS certificate verification needs to be disabled
-    tls: {
-      rejectUnauthorized: false,
-    },
-    connectionTimeout: 60000,
-    greetingTimeout: 30000,
-    socketTimeout: 60000,
-  });
-  if (!smtpUser || !smtpPass) {
-    console.warn('SMTP user or pass is not set. Transport may fail.');
-  }
-} else {
-  console.warn('No SMTP settings provided. Nodemailer will attempt connection and likely fall back to Ethereal in development.');
-  transporter = nodemailer.createTransport({});
+// Initialize Brevo (Sendinblue) transactional client when API key provided
+let brevoEmailApi = null;
+if (process.env.BREVO_API_KEY) {
+  const client = SibApiV3Sdk.ApiClient.instance;
+  client.authentications['api-key'].apiKey = process.env.BREVO_API_KEY;
+  brevoEmailApi = new SibApiV3Sdk.TransactionalEmailsApi();
 }
 
-// Verify transporter at startup and fall back to Ethereal in non-production
-(async () => {
+// Helper: send OTP email using Brevo transactional API
+export async function sendOtpEmail(address, otp) {
+  // Lazy-init Brevo client so we don't perform network I/O at module load.
+  if (!brevoEmailApi) {
+    if (!process.env.BREVO_API_KEY) throw new Error('BREVO_API_KEY not configured');
+    const client = SibApiV3Sdk.ApiClient.instance;
+    client.authentications['api-key'].apiKey = process.env.BREVO_API_KEY;
+    brevoEmailApi = new SibApiV3Sdk.TransactionalEmailsApi();
+  }
+
+  const fromEnv = process.env.EMAIL_FROM || '';
+  const match = fromEnv.match(/^(.*)<([^>]+)>$/);
+  const sender = match ? { name: (match[1] || 'NewRoots').trim(), email: match[2].trim() } : { name: 'NewRoots', email: (fromEnv || 'no-reply@newroots.local') };
+
+  const subject = 'Your NewRoots OTP';
+  const textContent = `Your OTP is ${otp}. It is valid for 5 minutes.`;
+  const htmlContent = `<h2>Your OTP: ${otp}</h2><p>This code is valid for 5 minutes.</p>`;
+
   try {
-    await transporter.verify();
-    console.log('SMTP transporter verified');
+    const resp = await brevoEmailApi.sendTransacEmail({
+      sender,
+      to: [{ email: address }],
+      subject,
+      textContent,
+      htmlContent,
+    });
+    return resp;
   } catch (err) {
-    console.error('SMTP transporter verification failed:', err);
-    if (process.env.NODE_ENV !== 'production') {
+    // If Brevo rejects (forbidden/unverified sender) and DEBUG_EMAIL is enabled,
+    // fall back to an Ethereal (nodemailer) test send so local testing can proceed.
+    const statusCode = err && (err.status || err.statusCode || (err.response && err.response.status));
+    const message = err && (err.message || (err.response && err.response.text));
+    console.warn('Brevo send failed', { statusCode, message });
+    if (process.env.DEBUG_EMAIL === 'true') {
       try {
         const testAccount = await nodemailer.createTestAccount();
-        transporter = nodemailer.createTransport({
+        const transporter = nodemailer.createTransport({
           host: testAccount.smtp.host,
           port: testAccount.smtp.port,
           secure: testAccount.smtp.secure,
-          auth: { user: testAccount.user, pass: testAccount.pass },
+          auth: {
+            user: testAccount.user,
+            pass: testAccount.pass,
+          },
         });
-        console.log('Using Ethereal test account for email (development).');
-        console.log(`Ethereal account user=${testAccount.user} pass=${testAccount.pass}`);
-      } catch (e) {
-        console.error('Failed to create Ethereal test account:', e);
+        const mailOptions = {
+          from: `${sender.name} <${sender.email}>`,
+          to: address,
+          subject,
+          text: textContent,
+          html: htmlContent,
+        };
+        const info = await transporter.sendMail(mailOptions);
+        const previewUrl = nodemailer.getTestMessageUrl(info) || null;
+        console.log('Ethereal preview URL:', previewUrl);
+        return { fallback: 'ethereal', info, previewUrl };
+      } catch (fallbackErr) {
+        console.error('Ethereal fallback failed', fallbackErr);
+        throw err; // throw original Brevo error after fallback failure
       }
     }
+    throw err;
   }
-})();
+}
 
 // Email link verification removed: verification is handled via OTP only.
 
@@ -146,33 +155,15 @@ router.post('/send-email-otp', async (req, res) => {
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
   try {
     await EmailOtp.findOneAndUpdate({ email }, { code, expiresAt }, { upsert: true, new: true });
-    // Ensure RFC-compliant From using SMTP_EMAIL when available
-    const smtpEmail = process.env.SMTP_EMAIL || process.env.SMTP_USER || null;
-    const fromEnv = process.env.SMTP_FROM || process.env.EMAIL_FROM;
-    const from = fromEnv || (smtpEmail ? `NewRoots <${smtpEmail}>` : 'no-reply@newroots.local');
-    const mailOpts = {
-      from,
-      to: email,
-      subject: 'Your NewRoots verification code',
-      text: `Your verification code is: ${code}. It expires in 10 minutes.`,
-      html: `<p>Your verification code is: <strong>${code}</strong></p><p>It expires in 10 minutes.</p>`,
-    };
     if (process.env.DEBUG_EMAIL === 'true') {
       try {
-        console.log('DEBUG_EMAIL: transporter options', transporter && transporter.options ? transporter.options : 'no-transporter-options');
-        console.log('DEBUG_EMAIL: mail options', { from: mailOpts.from, to: mailOpts.to, subject: mailOpts.subject });
+        console.log('DEBUG_EMAIL: will send OTP to', email);
       } catch (e) {
-        console.warn('DEBUG_EMAIL: failed to log mail options', e);
+        console.warn('DEBUG_EMAIL: failed to log mail debug', e);
       }
     }
-
-    const info = await transporter.sendMail(mailOpts);
-    // If using ethereal, log preview URL
-    const preview = nodemailer.getTestMessageUrl(info);
-    if (preview) console.log('Preview email URL:', preview);
-    const resp = { success: true, message: 'OTP sent', preview: preview || null };
-    if (process.env.DEBUG_EMAIL === 'true') resp.info = info && (info.response || info);
-    return res.json(resp);
+    await sendOtpEmail(email, code);
+    return res.json({ success: true });
   } catch (err) {
     console.error('SEND OTP ERROR:', err);
     if (process.env.DEBUG_EMAIL === 'true') {
@@ -183,27 +174,7 @@ router.post('/send-email-otp', async (req, res) => {
   }
 });
 
-// Temporary health/test route to verify SMTP from production
-router.get('/test-email', async (req, res) => {
-  const to = req.query.to || process.env.SMTP_EMAIL || null;
-  if (!to) return res.status(400).json({ success: false, error: 'Missing `to` query parameter or SMTP_EMAIL env' });
-  try {
-    const smtpEmail = process.env.SMTP_EMAIL || process.env.SMTP_USER || null;
-    const fromEnv = process.env.SMTP_FROM || process.env.EMAIL_FROM;
-    const from = fromEnv || (smtpEmail ? `NewRoots <${smtpEmail}>` : 'no-reply@newroots.local');
-    const info = await transporter.sendMail({
-      from,
-      to,
-      subject: 'NewRoots test email',
-      text: 'This is a test email from NewRoots',
-    });
-    const preview = nodemailer.getTestMessageUrl(info);
-    return res.json({ success: true, preview: preview || null, info: info.response || info });
-  } catch (err) {
-    console.error('TEST EMAIL ERROR:', err);
-    return res.status(500).json({ success: false, error: 'Failed to send test email', details: err && err.message });
-  }
-});
+// Removed SMTP test route; use the /send-email-otp route to trigger transactional emails.
 
 // verify email OTP
 router.post('/verify-email-otp', async (req, res) => {

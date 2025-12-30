@@ -18,15 +18,30 @@ dotenv.config();
 connectDB();
 
 const app = express();
-// Ensure CORS headers are always present (including on error responses)
-app.use((req, res, next) => {
-	res.setHeader('Access-Control-Allow-Origin', '*');
-	res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
-	res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-	if (req.method === 'OPTIONS') return res.sendStatus(200);
-	next();
-});
-app.use(cors());
+// CORS configuration — must be registered before routes.
+const allowedOrigins = [
+	'https://newroots-1.onrender.com',
+	'http://localhost:5173',
+	'http://localhost:3000',
+];
+const corsOptions = {
+	origin: (origin, callback) => {
+		// Allow requests with no origin (e.g., curl, mobile apps, server-to-server)
+		if (!origin) return callback(null, true);
+		// If origin is in our whitelist, allow it; otherwise explicitly deny
+		if (allowedOrigins.includes(origin)) return callback(null, true);
+		// Do not throw an error from the origin check — return false so CORS
+		// middleware will not set the Access-Control-Allow-Origin header.
+		return callback(null, false);
+	},
+	credentials: true,
+	methods: ['GET','POST','PUT','DELETE','OPTIONS','HEAD','PATCH'],
+	allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+};
+
+app.use(cors(corsOptions));
+// Handle preflight requests for all routes
+app.options('*', cors(corsOptions));
 // capture raw request body for better diagnostics of JSON parse errors
 app.use(express.json({
 	verify: (req, _res, buf) => {
@@ -55,15 +70,28 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
-export default app;
-
 // Error handler to surface JSON parse errors with raw payload when debugging
 app.use((err, req, res, next) => {
-	if (err && err.type === 'entity.parse.failed') {
-		console.error('JSON parse error on', req.method, req.originalUrl, 'error:', err.message);
-		console.error('Raw body:', req.rawBody);
-		const payload = process.env.DEBUG_EMAIL === 'true' ? { rawBody: req.rawBody } : undefined;
-		return res.status(400).json({ error: 'Invalid JSON payload', details: err.message, payload });
-	}
-	next(err);
+  if (err && err.type === 'entity.parse.failed') {
+    console.error('JSON parse error on', req.method, req.originalUrl, 'error:', err.message);
+    console.error('Raw body:', req.rawBody);
+    const payload = process.env.DEBUG_EMAIL === 'true' ? { rawBody: req.rawBody } : undefined;
+    return res.status(400).json({ error: 'Invalid JSON payload', details: err.message, payload });
+  }
+  next(err);
 });
+
+// Generic error handler — always return JSON and avoid crashing the process.
+app.use((err, req, res, next) => {
+	console.error('Unhandled error:', err && err.stack ? err.stack : err);
+	if (res.headersSent) return next(err);
+	const status = err && err.status ? err.status : 500;
+	const message = err && err.message ? err.message : 'Internal Server Error';
+	// In non-production include an error id or stack when DEBUG_EMAIL is true
+	const payload = process.env.NODE_ENV !== 'production' || process.env.DEBUG_EMAIL === 'true'
+		? { message, stack: err && err.stack }
+		: { message };
+	return res.status(status).json({ error: payload });
+});
+
+export default app;
