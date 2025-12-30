@@ -1,13 +1,28 @@
-import dotenv from "dotenv";
-import path from "path";
-import { fileURLToPath } from "url";
 
-// Fix for ES modules (__dirname replacement)
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Only load dotenv in development; Render injects env vars in production
+if (process.env.NODE_ENV !== 'production') {
+  import('dotenv').then(dotenv => dotenv.config());
+}
 
-// Explicit path to backend/.env
-dotenv.config({ path: path.resolve(__dirname, "../.env") });
+// Validate required environment variables for production
+const requiredVars = [
+  'EMAIL_FROM', // Used as sender address for all outgoing emails
+  'JWT_SECRET', // Used for signing/verifying JWT tokens
+  'MONGO_ATLAS', // MongoDB Atlas connection string
+  'SMTP_HOST', // SMTP server for sending emails
+  'SMTP_PORT', // SMTP port
+  'SMTP_SECURE', // SMTP secure flag (true/false)
+  'SMTP_USER', // SMTP username
+  'SMTP_PASS', // SMTP password
+];
+if (process.env.NODE_ENV === 'production') {
+  requiredVars.forEach((v) => {
+    if (!process.env[v]) {
+      console.error(`Missing required env variable: ${v}`);
+      process.exit(1);
+    }
+  });
+}
 
 
 import app from "./app.js";

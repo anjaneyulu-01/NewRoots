@@ -4,8 +4,7 @@ dotenv.config();
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import Joi from 'joi';
-import SibApiV3Sdk from 'sib-api-v3-sdk';
-// Removed nodemailer: only Brevo Transactional API is used
+import { sendOtpEmail } from '../utils/mailer.js';
 import { OAuth2Client } from 'google-auth-library';
 import User from '../models/User.js';
 import EmailOtp from '../models/EmailOtp.js';
@@ -21,50 +20,7 @@ const router = express.Router();
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-// Brevo (Sendinblue) will be used for transactional emails only.
-// No SMTP, Nodemailer, or Ethereal logic is present.
-
-// Initialize Brevo (Sendinblue) transactional client when API key provided
-let brevoEmailApi = null;
-if (process.env.BREVO_API_KEY) {
-  const client = SibApiV3Sdk.ApiClient.instance;
-  client.authentications['api-key'].apiKey = process.env.BREVO_API_KEY;
-  brevoEmailApi = new SibApiV3Sdk.TransactionalEmailsApi();
-}
-
-// Helper: send OTP email using Brevo transactional API ONLY
-async function sendOtpEmail(address, otp) {
-  if (!process.env.BREVO_API_KEY) {
-    throw new Error('BREVO_API_KEY not configured');
-  }
-  const fromEnv = process.env.EMAIL_FROM || '';
-  const match = fromEnv.match(/^(.*)<([^>]+)>$/);
-  const sender = match
-    ? { name: (match[1] || 'NewRoots').trim(), email: match[2].trim() }
-    : { name: process.env.EMAIL_FROM_NAME || 'NewRoots', email: process.env.EMAIL_FROM_EMAIL || 'newroots.app@gmail.com' };
-
-  const subject = 'Your NewRoots OTP';
-  const htmlContent = `<h2>Your OTP: ${otp}</h2><p>This code is valid for 10 minutes.</p>`;
-
-  try {
-    const client = SibApiV3Sdk.ApiClient.instance;
-    client.authentications['api-key'].apiKey = process.env.BREVO_API_KEY;
-    const api = new SibApiV3Sdk.TransactionalEmailsApi();
-    const resp = await api.sendTransacEmail({
-      sender: { name: sender.name, email: sender.email },
-      to: [{ email: address }],
-      subject,
-      htmlContent,
-    });
-    if (process.env.DEBUG_EMAIL === 'true') console.log('Brevo send response:', resp);
-    return resp;
-  } catch (err) {
-    const statusCode = err && (err.status || err.statusCode || (err.response && err.response.status));
-    const message = err && (err.message || (err.response && err.response.text));
-    console.warn('Brevo send failed', { statusCode, message });
-    throw err;
-  }
-}
+// sendOtpEmail is now imported from utils/mailer.js and uses SMTP config from environment variables
 
 // Email link verification removed: verification is handled via OTP only.
 
