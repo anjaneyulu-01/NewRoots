@@ -132,10 +132,8 @@ export default function Register() {
     setSuccessMessage('');
     if (!email) { setOtpError('Enter a valid email'); return; }
     try {
-      console.log('sendOtp: requesting OTP for', email);
       setSending(true);
       const res = await api.post('/api/auth/send-email-otp', { email });
-      console.log('sendOtp response', res && res.data);
       setEmailSent(true);
       setSentEmailAddress(email);
       setResendCooldown(60);
@@ -148,7 +146,6 @@ export default function Register() {
       otpTimerRef.current = setInterval(() => setOtpCountdown((s) => { if (s <= 1) { clearInterval(otpTimerRef.current); return 0; } return s - 1; }), 1000);
       setSuccessMessage(res.data?.message || 'OTP sent to your email');
     } catch (err) {
-      console.error('sendOtp error', err);
       setOtpError(err.response?.data?.error || 'Failed to send OTP');
     } finally {
       setSending(false);
