@@ -39,14 +39,21 @@ if (process.env.SMTP_EMAIL && process.env.SMTP_PASS) {
   });
   console.log('Using Gmail service for SMTP via SMTP_EMAIL');
 } else if (smtpHost) {
+  // Use safer defaults for common SMTP providers (port 587, STARTTLS)
+  const smtpPortNum = smtpPort || 587;
+  const secureFlag = smtpPortNum === 465 || smtpSecure;
   transporter = nodemailer.createTransport({
     host: smtpHost,
-    port: smtpPort,
-    secure: smtpSecure,
+    port: smtpPortNum,
+    secure: secureFlag,
     auth: smtpUser ? { user: smtpUser, pass: smtpPass } : undefined,
-    connectionTimeout: 5000,
-    greetingTimeout: 5000,
-    socketTimeout: 5000,
+    // On some hosts (Render) TLS certificate verification needs to be disabled
+    tls: {
+      rejectUnauthorized: false,
+    },
+    connectionTimeout: 60000,
+    greetingTimeout: 30000,
+    socketTimeout: 60000,
   });
   if (!smtpUser || !smtpPass) {
     console.warn('SMTP user or pass is not set. Transport may fail.');
