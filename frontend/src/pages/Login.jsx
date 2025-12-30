@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import ThemeToggle from '../components/ThemeToggle.jsx';
 
@@ -8,6 +9,7 @@ export default function Login() {
   const [error, setError] = useState('');
   const [fieldError, setFieldError] = useState('');
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -19,17 +21,15 @@ export default function Login() {
     if (!password || password.length < 6) { setFieldError('Password must be at least 6 characters'); return; }
     try {
       const res = await api.post('/api/auth/login', { email, password });
-      console.log('login response', res && res.data);
       const token = res?.data?.token || res?.data?.accessToken || res?.data?.data?.token;
       if (!token) {
-        console.error('No token in login response', res?.data);
         setError('Login succeeded but no token returned');
         setLoading(false);
         return;
       }
       localStorage.setItem('token', token);
-      // navigate to app root (HashRouter)
-      window.location.href = '#/';
+      // use react-router navigation instead of logging or forcing location
+      navigate('/', { replace: true });
     } catch (err) {
       setError(err.response?.data?.error || 'Login failed');
     }
