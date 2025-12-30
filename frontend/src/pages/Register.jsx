@@ -25,6 +25,10 @@ export default function Register() {
   const [fieldErrors, setFieldErrors] = useState({});
   const googleButtonRef = React.useRef(null);
 
+  // Example: Access Google Maps API key from environment
+  // GOOGLE_MAPS_API_KEY is set in Render dashboard and .env for local
+  const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+
   React.useEffect(() => {
     // load Google Identity Services if client id provided
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
