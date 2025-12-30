@@ -1,11 +1,12 @@
-// Nodemailer SMTP configuration for ES modules (Node.js v22+, "type": "module")
+
+import dotenv from 'dotenv';
+dotenv.config();
 import nodemailer from 'nodemailer';
 
 // Validate required SMTP environment variables at startup
 const requiredSmtpVars = [
   'SMTP_HOST',
   'SMTP_PORT',
-  'SMTP_SECURE',
   'SMTP_USER',
   'SMTP_PASS',
   'EMAIL_FROM',
@@ -16,11 +17,14 @@ for (const v of requiredSmtpVars) {
   }
 }
 
-// Create a reusable transporter object using SMTP (ES module compatible)
+// Brevo (Sendinblue) SMTP: port 587, secure false, domain-based sender
+const port = Number(process.env.SMTP_PORT);
+const secure = port === 465; // Only use secure for port 465
+
 export const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT),
-  secure: process.env.SMTP_SECURE === 'true',
+  port,
+  secure,
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
@@ -47,8 +51,10 @@ export async function sendEmail({ to, subject, html, text }) {
       text,
     });
   } catch (err) {
-    console.error('Email send failed:', err);
-    throw new Error('Failed to send email');
+    // Log full error for Render logs
+    console.error('Email send failed:', err && err.stack ? err.stack : err);
+    // Rethrow for route handler to catch and respond with JSON
+    throw err;
   }
 }
 
