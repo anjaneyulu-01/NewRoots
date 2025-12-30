@@ -159,15 +159,22 @@ export default function Register() {
     if (!otp || otp.trim().length === 0) { setOtpError('Enter the OTP'); return; }
     try {
       setVerifying(true);
-      // call register-with-otp to verify code and create account
-      const res = await api.post('/api/auth/register-with-otp', { name, email, password, code: otp });
-      if (res.status === 201) {
-        // success — redirect to login
-        window.location.href = '#/login';
+      // First verify OTP only
+      const verifyRes = await api.post('/api/auth/verify-email-otp', { email, code: otp });
+      if (verifyRes.data && verifyRes.data.success) {
+        setEmailVerified(true);
+        setSuccessMessage('Email verified! You can now create your account.');
+        setOtpError('');
+      } else {
+        setOtpError('Invalid or expired OTP');
+        setEmailVerified(false);
         return;
       }
     } catch (err) {
       setOtpError(err.response?.data?.error || 'Invalid OTP');
+      setEmailVerified(false);
+      console.error('verifyOtp error', err);
+      return;
     } finally {
       setVerifying(false);
     }

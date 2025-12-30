@@ -5,7 +5,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import Joi from 'joi';
 import SibApiV3Sdk from 'sib-api-v3-sdk';
-import nodemailer from 'nodemailer';
+// Removed nodemailer: only Brevo Transactional API is used
 import { OAuth2Client } from 'google-auth-library';
 import User from '../models/User.js';
 import EmailOtp from '../models/EmailOtp.js';
@@ -32,8 +32,11 @@ if (process.env.BREVO_API_KEY) {
   brevoEmailApi = new SibApiV3Sdk.TransactionalEmailsApi();
 }
 
-// Helper: send OTP email using Brevo transactional API
+// Helper: send OTP email using Brevo transactional API ONLY
 async function sendOtpEmail(address, otp) {
+  if (!process.env.BREVO_API_KEY) {
+    throw new Error('BREVO_API_KEY not configured');
+  }
   const fromEnv = process.env.EMAIL_FROM || '';
   const match = fromEnv.match(/^(.*)<([^>]+)>$/);
   const sender = match
@@ -41,66 +44,8 @@ async function sendOtpEmail(address, otp) {
     : { name: process.env.EMAIL_FROM_NAME || 'NewRoots', email: process.env.EMAIL_FROM_EMAIL || 'newroots.app@gmail.com' };
 
   const subject = 'Your NewRoots OTP';
-  const textContent = `Your OTP is ${otp}. It is valid for 10 minutes.`;
   const htmlContent = `<h2>Your OTP: ${otp}</h2><p>This code is valid for 10 minutes.</p>`;
 
-  // If explicitly requested, try SMTP first (useful when you want to use your Gmail account)
-  if (process.env.USE_SMTP === 'true' && process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
-    try {
-      const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : 587,
-        secure: process.env.SMTP_SECURE === 'true',
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
-        },
-      });
-      const mailOptions = {
-        from: `${sender.name} <${sender.email}>`,
-        to: address,
-        subject,
-        text: textContent,
-        html: htmlContent,
-      };
-      const info = await transporter.sendMail(mailOptions);
-      if (process.env.DEBUG_EMAIL === 'true') console.log('SMTP send info:', info);
-      return { fallback: 'smtp', info };
-    } catch (smtpErr) {
-      console.error('SMTP send failed', smtpErr);
-      // fall through to Brevo/Ethereal fallback
-  }
-
-  // If Brevo API key not present, either fallback to Ethereal (debug) or throw
-  if (!process.env.BREVO_API_KEY) {
-    if (process.env.DEBUG_EMAIL === 'true') {
-      // Ethereal fallback for local testing
-      const mailOptions = {
-        from: `${sender.name} <${sender.email}>`,
-        to: address,
-        subject,
-        text: textContent,
-        html: htmlContent,
-      };
-      const testAccount = await nodemailer.createTestAccount();
-      const transporter = nodemailer.createTransport({
-        host: testAccount.smtp.host,
-        port: testAccount.smtp.port,
-        secure: testAccount.smtp.secure,
-        auth: {
-          user: testAccount.user,
-          pass: testAccount.pass,
-        },
-      });
-      const info = await transporter.sendMail(mailOptions);
-      const previewUrl = nodemailer.getTestMessageUrl(info) || null;
-      console.log('Ethereal preview URL:', previewUrl);
-      return { fallback: 'ethereal', info, previewUrl };
-    }
-    throw new Error('BREVO_API_KEY not configured');
-  }
-
-  // Try Brevo (Sendinblue) transactional API
   try {
     const client = SibApiV3Sdk.ApiClient.instance;
     client.authentications['api-key'].apiKey = process.env.BREVO_API_KEY;
@@ -117,38 +62,8 @@ async function sendOtpEmail(address, otp) {
     const statusCode = err && (err.status || err.statusCode || (err.response && err.response.status));
     const message = err && (err.message || (err.response && err.response.text));
     console.warn('Brevo send failed', { statusCode, message });
-    // If DEBUG, try Ethereal as a last resort
-    if (process.env.DEBUG_EMAIL === 'true') {
-      try {
-        const mailOptions = {
-          from: `${sender.name} <${sender.email}>`,
-          to: address,
-          subject,
-          text: textContent,
-          html: htmlContent,
-        };
-        const testAccount = await nodemailer.createTestAccount();
-        const transporter = nodemailer.createTransport({
-          host: testAccount.smtp.host,
-          port: testAccount.smtp.port,
-          secure: testAccount.smtp.secure,
-          auth: {
-            user: testAccount.user,
-            pass: testAccount.pass,
-          },
-        });
-        const info = await transporter.sendMail(mailOptions);
-        const previewUrl = nodemailer.getTestMessageUrl(info) || null;
-        console.log('Ethereal preview URL:', previewUrl);
-        return { fallback: 'ethereal', info, previewUrl };
-      } catch (fallbackErr) {
-        console.error('Ethereal/SMTP fallback failed', fallbackErr);
-        throw err; // throw original Brevo error after fallback failure
-      }
-    }
     throw err;
   }
-}
 }
 
 // Email link verification removed: verification is handled via OTP only.

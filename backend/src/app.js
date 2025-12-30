@@ -21,17 +21,15 @@ const app = express();
 // CORS configuration — must be registered before routes.
 const allowedOrigins = [
 	'https://newroots-1.onrender.com',
+	'https://newroots.onrender.com',
 	'http://localhost:5173',
-	'http://localhost:3000',
 ];
 const corsOptions = {
 	origin: (origin, callback) => {
 		// Allow requests with no origin (e.g., curl, mobile apps, server-to-server)
 		if (!origin) return callback(null, true);
-		// If origin is in our whitelist, allow it; otherwise explicitly deny
 		if (allowedOrigins.includes(origin)) return callback(null, true);
-		// Do not throw an error from the origin check — return false so CORS
-		// middleware will not set the Access-Control-Allow-Origin header.
+		// Do not throw error, just deny by returning false
 		return callback(null, false);
 	},
 	credentials: true,

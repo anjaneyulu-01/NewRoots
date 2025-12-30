@@ -5,4 +5,5 @@ export const apiLimiter = rateLimit({
   max: 300,
   standardHeaders: true,
   legacyHeaders: false,
+  trustProxy: true,
 });
