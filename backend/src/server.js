@@ -1,8 +1,7 @@
 
 // Only load dotenv in development; Render injects env vars in production
-if (process.env.NODE_ENV !== 'production') {
-  import('dotenv').then(dotenv => dotenv.config());
-}
+import "dotenv/config"; // harmless in production
+
 
 // Validate required environment variables for production
 const requiredVars = [
