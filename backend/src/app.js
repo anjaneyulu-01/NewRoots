@@ -14,7 +14,6 @@ import contactRoutes from './routes/contact.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-dotenv.config();
 connectDB();
 
 const app = express();
@@ -91,5 +90,11 @@ app.use((err, req, res, next) => {
 		: { message };
 	return res.status(status).json({ error: payload });
 });
+
+app.get("/", (req, res) => {
+  res.json({ status: "NewRoots backend running 🚀" });
+});
+
+
 
 export default app;
