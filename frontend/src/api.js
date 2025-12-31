@@ -1,8 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
-  withCredentials: true,
+  baseURL: import.meta.env.VITE_API_URL, // https://newroots.onrender.com/api
 });
 
 // Attach JWT on every request
@@ -17,15 +16,13 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Global response handler: redirect on 401
+// Global response handler
 api.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err?.response?.status === 401) {
       localStorage.removeItem('token');
-      if (typeof window !== 'undefined') {
-        window.location.href = '/login';
-      }
+      window.location.href = '/login';
     }
     return Promise.reject(err);
   }
