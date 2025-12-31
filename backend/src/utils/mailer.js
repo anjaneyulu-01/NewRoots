@@ -1,25 +1,23 @@
-
-import dotenv from 'dotenv';
-dotenv.config();
 import nodemailer from 'nodemailer';
 
-// Validate required SMTP environment variables at startup
-const requiredSmtpVars = [
+// Validate required env vars at startup
+const requiredVars = [
   'SMTP_HOST',
   'SMTP_PORT',
   'SMTP_USER',
   'SMTP_PASS',
   'EMAIL_FROM',
 ];
-for (const v of requiredSmtpVars) {
+
+for (const v of requiredVars) {
   if (!process.env[v]) {
-    throw new Error(`Missing required SMTP environment variable: ${v}`);
+    console.error(`❌ Missing env variable: ${v}`);
+    process.exit(1);
   }
 }
 
-// Brevo (Sendinblue) SMTP: port 587, secure false, domain-based sender
 const port = Number(process.env.SMTP_PORT);
-const secure = port === 465; // Only use secure for port 465
+const secure = port === 465;
 
 export const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
@@ -31,44 +29,23 @@ export const transporter = nodemailer.createTransport({
   },
 });
 
-/**
- * Send an email (OTP, verification, etc.)
- * @param {string} to - Recipient email address
- * @param {string} subject - Email subject
- * @param {string} html - HTML content
- * @param {string} [text] - Plain text content (optional)
- * @returns {Promise<void>}
- */
-export async function sendEmail({ to, subject, html, text }) {
-  const from = process.env.EMAIL_FROM;
-  if (!from) throw new Error('EMAIL_FROM env variable is required');
-  try {
-    await transporter.sendMail({
-      from,
-      to,
-      subject,
-      html,
-      text,
-    });
-  } catch (err) {
-    // Log full error for Render logs
-    console.error('Email send failed:', err && err.stack ? err.stack : err);
-    // Rethrow for route handler to catch and respond with JSON
-    throw err;
-  }
-}
+// Verify SMTP once at startup (VERY IMPORTANT)
+transporter.verify()
+  .then(() => console.log('✅ SMTP ready (Brevo connected)'))
+  .catch(err => {
+    console.error('❌ SMTP verification failed:', err);
+    process.exit(1);
+  });
 
-// Example usage: sendOtpEmail
-/**
- * Send OTP email (example usage)
- * @param {string} to - Recipient email address
- * @param {string} otp - One-time password
- */
 export async function sendOtpEmail(to, otp) {
-  return sendEmail({
+  return transporter.sendMail({
+    from: process.env.EMAIL_FROM,
     to,
     subject: 'Your OTP Code',
-    text: `Your OTP is ${otp}. It is valid for 10 minutes.`,
-    html: `<h2>Your OTP: ${otp}</h2><p>This code is valid for 10 minutes.</p>`,
+    text: `Your OTP is ${otp}. Valid for 10 minutes.`,
+    html: `
+      <h2>Your OTP: ${otp}</h2>
+      <p>This code is valid for 10 minutes.</p>
+    `,
   });
 }

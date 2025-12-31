@@ -252,5 +252,4 @@ router.delete('/me', requireAuth, async (req, res) => {
   }
 });
 
-export { sendOtpEmail };
 export default router;
