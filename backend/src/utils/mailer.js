@@ -1,51 +1,47 @@
-import nodemailer from 'nodemailer';
+import axios from 'axios';
 
-// Validate required env vars at startup
-const requiredVars = [
-  'SMTP_HOST',
-  'SMTP_PORT',
-  'SMTP_USER',
-  'SMTP_PASS',
-  'EMAIL_FROM',
-];
+const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
 
-for (const v of requiredVars) {
-  if (!process.env[v]) {
-    console.error(`❌ Missing env variable: ${v}`);
-    process.exit(1);
-  }
+if (!process.env.BREVO_API_KEY) {
+  throw new Error('BREVO_API_KEY is missing');
 }
 
-const port = Number(process.env.SMTP_PORT);
-const secure = port === 465;
-
-export const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port,
-  secure,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
-
-// Verify SMTP once at startup (VERY IMPORTANT)
-transporter.verify()
-  .then(() => console.log('✅ SMTP ready (Brevo connected)'))
-  .catch(err => {
-    console.error('❌ SMTP verification failed:', err);
-    process.exit(1);
-  });
+if (!process.env.EMAIL_FROM) {
+  throw new Error('EMAIL_FROM is missing');
+}
 
 export async function sendOtpEmail(to, otp) {
-  return transporter.sendMail({
-    from: process.env.EMAIL_FROM,
-    to,
-    subject: 'Your OTP Code',
-    text: `Your OTP is ${otp}. Valid for 10 minutes.`,
-    html: `
-      <h2>Your OTP: ${otp}</h2>
-      <p>This code is valid for 10 minutes.</p>
-    `,
-  });
+  try {
+    const response = await axios.post(
+      BREVO_API_URL,
+      {
+        sender: {
+          email: process.env.EMAIL_FROM,
+          name: 'NewRoots',
+        },
+        to: [{ email: to }],
+        subject: 'Your NewRoots OTP Code',
+        htmlContent: `
+          <h2>Your OTP: ${otp}</h2>
+          <p>This code is valid for 10 minutes.</p>
+        `,
+      },
+      {
+        headers: {
+          'api-key': process.env.BREVO_API_KEY,
+          'Content-Type': 'application/json',
+        },
+        timeout: 10000,
+      }
+    );
+
+    console.log('✅ OTP email sent to:', to);
+    return response.data;
+  } catch (err) {
+    console.error(
+      '❌ Brevo email failed:',
+      err?.response?.data || err.message
+    );
+    throw err;
+  }
 }
