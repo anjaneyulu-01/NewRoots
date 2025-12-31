@@ -1,13 +1,19 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '',
+  baseURL: import.meta.env.VITE_API_URL,
+  withCredentials: true,
 });
 
 // Attach JWT on every request
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
-  if (token) config.headers = { ...config.headers, Authorization: `Bearer ${token}` };
+  if (token) {
+    config.headers = {
+      ...config.headers,
+      Authorization: `Bearer ${token}`,
+    };
+  }
   return config;
 });
 
@@ -15,14 +21,11 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-      if (err?.response?.status === 401) {
-      try {
-        localStorage.removeItem('token');
-      } catch (e) {
-        // ignore
+    if (err?.response?.status === 401) {
+      localStorage.removeItem('token');
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login';
       }
-      // Force redirect to login to surface auth issues instead of blank UI
-      if (typeof window !== 'undefined') window.location.href = '#/login';
     }
     return Promise.reject(err);
   }
