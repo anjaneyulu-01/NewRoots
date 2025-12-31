@@ -45,3 +45,4 @@ export async function sendOtpEmail(to, otp) {
     throw err;
   }
 }
+
