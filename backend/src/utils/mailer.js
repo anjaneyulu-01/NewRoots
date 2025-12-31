@@ -16,7 +16,7 @@ export async function sendOtpEmail(to, otp) {
       BREVO_API_URL,
       {
         sender: {
-          email: process.env.EMAIL_FROM,
+          email: process.env.EMAIL_FROM.trim(), // MUST be plain email
           name: 'NewRoots',
         },
         to: [{ email: to }],
