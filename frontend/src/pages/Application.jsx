@@ -8,6 +8,7 @@ import HousingCard from '../components/HousingCard.jsx';
 import CategoryCard from '../components/CategoryCard.jsx';
 import LocationPicker from '../components/LocationPicker.jsx';
 import ContactModal from '../components/ContactModal.jsx';
+import { compressImage, getBase64SizeMB } from '../utils/imageCompressor';
 
 // centralized `api` imported above
 
@@ -145,10 +146,13 @@ export default function Application() {
     const f = e.target.files && e.target.files[0];
     if (!f) return;
     try {
-      const data = await fileToDataUrl(f);
-      setNewEvent((p) => ({ ...p, imageData: data, imageUrl: '' }));
+      const compressed = await compressImage(f, { maxSizeMB: 1, maxWidthOrHeight: 1920, quality: 0.75 });
+      const sizeMB = getBase64SizeMB(compressed);
+      console.log(`Event image compressed to ${sizeMB.toFixed(2)}MB`);
+      setNewEvent((p) => ({ ...p, imageData: compressed, imageUrl: '' }));
     } catch (err) {
-      console.error(err);
+      console.error('Image compression failed:', err);
+      alert('Failed to process image. Please try a different image.');
     }
   };
 
@@ -156,10 +160,13 @@ export default function Application() {
     const f = e.target.files && e.target.files[0];
     if (!f) return;
     try {
-      const data = await fileToDataUrl(f);
-      setNewJob((p) => ({ ...p, imageData: data, imageUrl: '' }));
+      const compressed = await compressImage(f, { maxSizeMB: 1, maxWidthOrHeight: 1920, quality: 0.75 });
+      const sizeMB = getBase64SizeMB(compressed);
+      console.log(`Job image compressed to ${sizeMB.toFixed(2)}MB`);
+      setNewJob((p) => ({ ...p, imageData: compressed, imageUrl: '' }));
     } catch (err) {
-      console.error(err);
+      console.error('Image compression failed:', err);
+      alert('Failed to process image. Please try a different image.');
     }
   };
 
@@ -167,10 +174,13 @@ export default function Application() {
     const f = e.target.files && e.target.files[0];
     if (!f) return;
     try {
-      const data = await fileToDataUrl(f);
-      setNewHousing((p) => ({ ...p, imageData: data, imageUrl: '' }));
+      const compressed = await compressImage(f, { maxSizeMB: 1, maxWidthOrHeight: 1920, quality: 0.75 });
+      const sizeMB = getBase64SizeMB(compressed);
+      console.log(`Housing image compressed to ${sizeMB.toFixed(2)}MB`);
+      setNewHousing((p) => ({ ...p, imageData: compressed, imageUrl: '' }));
     } catch (err) {
-      console.error(err);
+      console.error('Image compression failed:', err);
+      alert('Failed to process image. Please try a different image.');
     }
   };
 

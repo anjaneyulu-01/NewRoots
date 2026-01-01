@@ -36,7 +36,9 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
 }));
 
-app.use(express.json());
+// Set JSON body size limit to 2MB to support compressed base64 image uploads
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ limit: '2mb', extended: true }));
 app.use(morgan('dev'));
 app.use('/api', apiLimiter);
 

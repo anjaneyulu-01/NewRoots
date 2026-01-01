@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Navbar from '../components/Navbar.jsx';
 import api from '../api';
+import { compressImage, getBase64SizeMB } from '../utils/imageCompressor';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -201,12 +202,18 @@ export default function Dashboard() {
   };
 
   // file upload handler for edit modal
-  const handleEditFile = (e) => {
+  const handleEditFile = async (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setEditData((p) => ({ ...p, imageData: reader.result, imageUrl: '' }));
-    reader.readAsDataURL(file);
+    try {
+      const compressed = await compressImage(file, { maxSizeMB: 1, maxWidthOrHeight: 1920, quality: 0.75 });
+      const sizeMB = getBase64SizeMB(compressed);
+      console.log(`Image compressed to ${sizeMB.toFixed(2)}MB`);
+      setEditData((p) => ({ ...p, imageData: compressed, imageUrl: '' }));
+    } catch (err) {
+      console.error('Image compression failed:', err);
+      alert('Failed to process image. Please try a different image.');
+    }
   };
 
   const handleApprove = async (application) => {
@@ -351,14 +358,18 @@ export default function Dashboard() {
   }
 
   // Create event helpers
-  const handleEventFileChange = (e) => {
+  const handleEventFileChange = async (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      setNewEventData((prev) => ({ ...prev, imageData: reader.result }));
-    };
-    reader.readAsDataURL(file);
+    try {
+      const compressed = await compressImage(file, { maxSizeMB: 1, maxWidthOrHeight: 1920, quality: 0.75 });
+      const sizeMB = getBase64SizeMB(compressed);
+      console.log(`Image compressed to ${sizeMB.toFixed(2)}MB`);
+      setNewEventData((prev) => ({ ...prev, imageData: compressed }));
+    } catch (err) {
+      console.error('Image compression failed:', err);
+      alert('Failed to process image. Please try a different image.');
+    }
   };
 
   const createEvent = async () => {
