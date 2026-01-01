@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../api';
 import ThemeToggle from '../components/ThemeToggle.jsx';
@@ -9,11 +9,17 @@ function useQuery() {
 }
 
 export default function ResetPassword() {
+  const [email, setEmail] = useState('');
+  const [token, setToken] = useState('');
   const query = useQuery();
-  const emailParam = query.get('email') || '';
-  const tokenParam = query.get('token') || '';
-  const [email, setEmail] = useState(emailParam);
-  const [token, setToken] = useState(tokenParam);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const emailParam = query.get('email') || '';
+    const tokenParam = query.get('token') || '';
+    setEmail(emailParam);
+    setToken(tokenParam);
+  }, [query]);
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [status, setStatus] = useState('');
