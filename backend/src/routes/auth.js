@@ -226,8 +226,10 @@ router.post('/forgot-password', async (req, res) => {
   await PasswordResetToken.deleteMany({ email: value.email });
   await PasswordResetToken.create({ email: value.email, tokenHash, expiresAt });
 
-  const baseUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
-  const link = `${baseUrl}/#/reset-password?token=${token}&email=${encodeURIComponent(value.email)}`;
+  // Use deployed URL for production
+  const baseUrl = process.env.FRONTEND_URL || 'https://newroots.onrender.com';
+  const cleanUrl = baseUrl.replace(/\/$/, '');
+  const link = `${cleanUrl}/#/reset-password?token=${token}&email=${encodeURIComponent(value.email)}`;
 
   try {
     await sendPasswordResetEmail(value.email, link);
