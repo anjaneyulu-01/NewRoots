@@ -121,6 +121,9 @@ export default function Login() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
+              <div className="mt-2 text-sm text-primary hover:text-hope-green-dark cursor-pointer" onClick={() => navigate('/forgot-password')}>
+                Forgot password?
+              </div>
             </div>
 
             <button type="submit" className="w-full btn-primary py-3 text-base" disabled={loading}>

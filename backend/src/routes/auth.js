@@ -4,16 +4,18 @@ dotenv.config();
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import Joi from 'joi';
-import { sendOtpEmail } from '../utils/mailer.js';
+import { sendOtpEmail, sendPasswordResetEmail } from '../utils/mailer.js';
 import { OAuth2Client } from 'google-auth-library';
 import User from '../models/User.js';
 import EmailOtp from '../models/EmailOtp.js';
+import PasswordResetToken from '../models/PasswordResetToken.js';
 import Event from '../models/Event.js';
 import Job from '../models/Job.js';
 import Housing from '../models/Housing.js';
 import Application from '../models/Application.js';
 import Contact from '../models/Contact.js';
 import { requireAuth } from '../middleware/auth.js';
+import crypto from 'crypto';
 
 const router = express.Router();
 
@@ -197,6 +199,66 @@ router.post('/google', async (req, res) => {
   } catch (err) {
     return res.status(400).json({ error: 'Invalid Google token', details: err.message });
   }
+});
+
+const forgotPasswordSchema = Joi.object({
+  email: Joi.string().email().required(),
+});
+
+const resetPasswordSchema = Joi.object({
+  email: Joi.string().email().required(),
+  token: Joi.string().length(64).required(),
+  password: Joi.string().min(6).required(),
+});
+
+router.post('/forgot-password', async (req, res) => {
+  const { error, value } = forgotPasswordSchema.validate(req.body);
+  if (error) return res.status(400).json({ error: error.message });
+
+  const user = await User.findOne({ email: value.email });
+  // Always return success to avoid email enumeration
+  if (!user) return res.json({ success: true });
+
+  const token = crypto.randomBytes(32).toString('hex');
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+  await PasswordResetToken.deleteMany({ email: value.email });
+  await PasswordResetToken.create({ email: value.email, tokenHash, expiresAt });
+
+  const baseUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
+  const link = `${baseUrl}/#/reset-password?token=${token}&email=${encodeURIComponent(value.email)}`;
+
+  try {
+    await sendPasswordResetEmail(value.email, link);
+  } catch (err) {
+    console.error('Failed to send reset email', err);
+    return res.status(500).json({ error: 'Failed to send reset email' });
+  }
+
+  return res.json({ success: true });
+});
+
+router.post('/reset-password', async (req, res) => {
+  const { error, value } = resetPasswordSchema.validate(req.body);
+  if (error) return res.status(400).json({ error: error.message });
+
+  const tokenHash = crypto.createHash('sha256').update(value.token).digest('hex');
+  const record = await PasswordResetToken.findOne({ email: value.email, tokenHash });
+  if (!record) return res.status(400).json({ error: 'Invalid or expired token' });
+  if (record.expiresAt < new Date()) {
+    await PasswordResetToken.deleteMany({ email: value.email });
+    return res.status(400).json({ error: 'Token expired' });
+  }
+
+  const user = await User.findOne({ email: value.email });
+  if (!user) return res.status(400).json({ error: 'User not found' });
+
+  user.passwordHash = await bcrypt.hash(value.password, 10);
+  await user.save();
+  await PasswordResetToken.deleteMany({ email: value.email });
+
+  return res.json({ success: true });
 });
 
 router.get('/me', requireAuth, async (req, res) => {
