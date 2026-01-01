@@ -53,6 +53,7 @@ export async function sendOtpEmail(to, otp) {
 
 export async function sendPasswordResetEmail(to, link) {
   try {
+    // Reuse the same mail-sending flow/key as OTP emails
     const data = await sendEmail({
       to,
       subject: 'Reset your NewRoots password',
