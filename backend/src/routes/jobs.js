@@ -34,7 +34,7 @@ const jobSchema = Joi.object({
   lng: Joi.number().optional(),
   pay: Joi.number().min(0).optional(),
   contact: Joi.string().allow(''),
-});
+}).unknown(true);
 
 router.post('/', requireAuth, async (req, res) => {
   const { error, value } = jobSchema.validate(req.body);

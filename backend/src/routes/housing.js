@@ -33,7 +33,7 @@ const housingSchema = Joi.object({
   lng: Joi.number().optional(),
   rent: Joi.number().min(0).required(),
   contact: Joi.string().allow(''),
-});
+}).unknown(true);
 
 router.post('/', requireAuth, async (req, res) => {
   const { error, value } = housingSchema.validate(req.body);
