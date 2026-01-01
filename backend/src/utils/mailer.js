@@ -81,11 +81,13 @@ export async function sendPasswordResetEmail(to, link) {
           </p>
           
           <p style="font-size: 14px; color: #666; margin-top: 30px;">
-            Or copy and paste this link in your browser:
+            If the button doesn't work, copy and paste this link in your browser:
           </p>
           
-          <p style="font-size: 12px; color: #999; word-break: break-all; background-color: #f5f5f5; padding: 10px; border-radius: 4px;">
-            ${link}
+          <p style="font-size: 12px; color: #0066cc; word-break: break-all; background-color: #f5f5f5; padding: 10px; border-radius: 4px; font-family: 'Courier New', monospace;">
+            <a href="${link}" style="color: #0066cc; text-decoration: none;">
+              ${link}
+            </a>
           </p>
           
           <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">

@@ -17,6 +17,7 @@ export default function ResetPassword() {
   useEffect(() => {
     const emailParam = query.get('email') || '';
     const tokenParam = query.get('token') || '';
+    console.log('Reset Password - Email:', emailParam, 'Token:', tokenParam ? 'Present' : 'Missing');
     setEmail(emailParam);
     setToken(tokenParam);
   }, [query]);
@@ -78,6 +79,18 @@ export default function ResetPassword() {
           {error && (
             <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-red-700 dark:text-red-300 text-sm">
               {error}
+              {error === 'Reset link is missing required parameters.' && (
+                <div className="mt-2">
+                  <p className="text-xs mb-2">The reset link may have expired or been corrupted.</p>
+                  <button 
+                    type="button" 
+                    onClick={() => navigate('/forgot-password')}
+                    className="text-primary hover:text-hope-green-dark underline text-xs"
+                  >
+                    Request a new reset link
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
