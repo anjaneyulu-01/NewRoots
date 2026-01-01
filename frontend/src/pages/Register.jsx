@@ -160,9 +160,9 @@ export default function Register() {
     if (!otp || otp.trim().length === 0) { setOtpError('Enter the OTP'); return; }
     try {
       setVerifying(true);
-      // First verify OTP only
-      const verifyRes = await api.post('/api/auth/verify-email-otp', { email, code: otp });
-      if (verifyRes.data && verifyRes.data.success) {
+      // Check if OTP is valid by trying to verify it (without deleting)
+      const record = await api.post('/api/auth/verify-email-otp', { email, code: otp });
+      if (record.data && record.data.success) {
         setEmailVerified(true);
         setSuccessMessage('Email verified! You can now create your account.');
         setOtpError('');
@@ -172,7 +172,7 @@ export default function Register() {
         return;
       }
     } catch (err) {
-      setOtpError(err.response?.data?.error || 'Invalid OTP');
+      setOtpError(err.response?.data?.error || 'Invalid or expired OTP');
       setEmailVerified(false);
       console.error('verifyOtp error', err);
       return;

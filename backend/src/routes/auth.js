@@ -127,14 +127,7 @@ router.post('/verify-email-otp', async (req, res) => {
     const record = await EmailOtp.findOne({ email, code });
     if (!record) return res.status(400).json({ error: 'Invalid code' });
     if (record.expiresAt < new Date()) return res.status(400).json({ error: 'Code expired' });
-    // remove used codes
-    await EmailOtp.deleteMany({ email });
-    // if user exists, mark verified
-    const user = await User.findOne({ email });
-    if (user) {
-      user.emailVerified = true;
-      await user.save();
-    }
+    // Don't delete here - let register-with-otp handle the deletion after account creation
     return res.json({ success: true });
   } catch (err) {
     console.error('verify-email-otp error', err);
