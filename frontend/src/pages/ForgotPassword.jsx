@@ -21,8 +21,9 @@ export default function ForgotPassword() {
     }
     try {
       setLoading(true);
-      await api.post('/api/auth/forgot-password', { email });
-      setStatus('If that email exists, a reset link was sent.');
+      const response = await api.post('/api/auth/forgot-password', { email });
+      setStatus(response.data.message || 'Password reset link has been sent to your email. Check your inbox.');
+      setEmail('');
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to send reset link');
     } finally {
@@ -54,6 +55,18 @@ export default function ForgotPassword() {
           {error && (
             <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-red-700 dark:text-red-300 text-sm">
               {error}
+              {error === 'There is no account with this email. Please create an account first.' && (
+                <div className="mt-3 pt-3 border-t border-red-200 dark:border-red-800">
+                  <p className="text-xs mb-2">Don't have an account yet?</p>
+                  <button 
+                    type="button" 
+                    onClick={() => navigate('/register')}
+                    className="text-red-700 dark:text-red-300 hover:text-red-900 dark:hover:text-red-100 underline text-xs font-semibold"
+                  >
+                    Create an account
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

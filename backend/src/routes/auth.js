@@ -216,8 +216,8 @@ router.post('/forgot-password', async (req, res) => {
   if (error) return res.status(400).json({ error: error.message });
 
   const user = await User.findOne({ email: value.email });
-  // Always return success to avoid email enumeration
-  if (!user) return res.json({ success: true });
+  // Return error if user doesn't exist
+  if (!user) return res.status(404).json({ error: 'There is no account with this email. Please create an account first.' });
 
   const token = crypto.randomBytes(32).toString('hex');
   const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
@@ -238,7 +238,7 @@ router.post('/forgot-password', async (req, res) => {
     return res.status(500).json({ error: 'Failed to send reset email' });
   }
 
-  return res.json({ success: true });
+  return res.json({ success: true, message: 'Password reset link sent to your email.' });
 });
 
 router.post('/reset-password', async (req, res) => {
