@@ -25,7 +25,6 @@ export default function ResetPassword() {
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
 
   const onSubmit = async (e) => {
     e.preventDefault();
