@@ -28,12 +28,12 @@ export default function Login() {
         return;
       }
       localStorage.setItem('token', token);
-      // use react-router navigation instead of logging or forcing location
-      navigate('/', { replace: true });
+      // Redirect to application immediately with window.location for instant refresh
+      window.location.href = '/#/';
     } catch (err) {
       setError(err.response?.data?.error || 'Login failed');
+      setLoading(false);
     }
-    finally { setLoading(false); }
   };
 
   return (

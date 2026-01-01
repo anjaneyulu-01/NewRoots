@@ -116,12 +116,12 @@ export default function Register() {
       return;
     }
     try {
-      const res = await api.post('/api/auth/register', { name, email, password });
+      const res = await api.post('/api/auth/register-with-otp', { name, email, password, code: otp });
       // registration endpoint currently returns message; if it returns token adjust accordingly
       if (res.data.token) {
         localStorage.setItem('token', res.data.token);
       }
-      window.location.href = '#/';
+      window.location.href = '#/login';
     } catch (err) {
       setError(err.response?.data?.error || 'Registration failed');
     }
