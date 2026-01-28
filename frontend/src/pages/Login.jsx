@@ -28,8 +28,7 @@ export default function Login() {
         return;
       }
       localStorage.setItem('token', token);
-      // Redirect to application immediately with window.location for instant refresh
-      window.location.href = '/#/';
+      navigate('/');
     } catch (err) {
       setError(err.response?.data?.error || 'Login failed');
       setLoading(false);
