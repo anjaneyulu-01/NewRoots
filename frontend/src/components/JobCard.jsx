@@ -1,14 +1,16 @@
 import React from 'react';
+import resolveImageUrl from '../utils/resolveImageUrl.js';
 
 export default function JobCard({ job, onContact, onApply }) {
   const posterId = job.poster?._id || job.postedBy || job.poster;
+  const imageUrl = resolveImageUrl(job.image);
 
   return (
     <div className="gig-card group">
       {/* Image/header */}
       <div className="relative h-32 bg-gradient-to-br from-secondary/10 to-accent/10 overflow-hidden">
-        {job.image ? (
-          <img src={job.image} alt={job.title} className="w-full h-full object-cover" />
+        {imageUrl ? (
+          <img src={imageUrl} alt={job.title} className="w-full h-full object-cover" />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-5xl opacity-30">💼</div>
         )}

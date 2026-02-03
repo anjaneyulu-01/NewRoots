@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Navbar from '../components/Navbar.jsx';
 import api from '../api';
 import { compressImage, getBase64SizeMB } from '../utils/imageCompressor';
+import resolveImageUrl from '../utils/resolveImageUrl.js';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -715,7 +716,7 @@ export default function Dashboard() {
                         <tr key={ev._id} className="hover-row">
                           <td className="p-4">
                             {ev.image ? (
-                              <img src={ev.image} alt={ev.title} className="w-20 h-12 object-cover rounded" />
+                              <img src={resolveImageUrl(ev.image)} alt={ev.title} className="w-20 h-12 object-cover rounded" />
                             ) : (
                               <div className="w-20 h-12 bg-hope-gray-100 dark:bg-hope-gray-700 rounded flex items-center justify-center">🎉</div>
                             )}
@@ -808,7 +809,7 @@ export default function Dashboard() {
                         <td className="p-4 font-medium">{h.title}</td>
                         <td className="p-4">
                           {h.image ? (
-                            <img src={h.image} alt={h.title} className="w-24 h-14 object-cover rounded" />
+                            <img src={resolveImageUrl(h.image)} alt={h.title} className="w-24 h-14 object-cover rounded" />
                           ) : (
                             <div className="w-24 h-14 bg-hope-gray-100 dark:bg-hope-gray-700 flex items-center justify-center">🏠</div>
                           )}

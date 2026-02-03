@@ -28,6 +28,7 @@ export default function Login() {
         return;
       }
       localStorage.setItem('token', token);
+      window.dispatchEvent(new Event('auth-token-changed'));
       navigate('/');
     } catch (err) {
       setError(err.response?.data?.error || 'Login failed');

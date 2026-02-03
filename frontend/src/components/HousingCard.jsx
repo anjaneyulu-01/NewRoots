@@ -1,14 +1,16 @@
 import React from 'react';
+import resolveImageUrl from '../utils/resolveImageUrl.js';
 
 export default function HousingCard({ housing, onContact, onApply }) {
   const ownerId = housing.poster?._id || housing.postedBy || housing.poster;
+  const imageUrl = resolveImageUrl(housing.image);
 
   return (
     <div className="gig-card group">
       {/* Image/header */}
       <div className="relative h-32 bg-gradient-to-br from-accent/10 to-primary/10 overflow-hidden">
-        {housing.image ? (
-          <img src={housing.image} alt={housing.title} className="w-full h-full object-cover" />
+        {imageUrl ? (
+          <img src={imageUrl} alt={housing.title} className="w-full h-full object-cover" />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-5xl opacity-30">🏠</div>
         )}

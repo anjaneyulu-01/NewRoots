@@ -120,6 +120,7 @@ export default function Register() {
       // registration endpoint currently returns message; if it returns token adjust accordingly
       if (res.data.token) {
         localStorage.setItem('token', res.data.token);
+        window.dispatchEvent(new Event('auth-token-changed'));
       }
       window.location.href = '#/login';
     } catch (err) {

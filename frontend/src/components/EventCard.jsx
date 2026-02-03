@@ -1,4 +1,5 @@
 import React from 'react';
+import resolveImageUrl from '../utils/resolveImageUrl.js';
 
 export default function EventCard({ event, onApply, onContact }) {
   const formatDate = (date) => {
@@ -10,13 +11,14 @@ export default function EventCard({ event, onApply, onContact }) {
   };
 
   const creatorId = event.creator?._id || event.createdBy || event.creator;
+  const imageUrl = resolveImageUrl(event.image);
 
   return (
     <div className="gig-card group">
       {/* Image */}
       <div className="relative h-48 bg-gradient-to-br from-primary/10 to-secondary/10 overflow-hidden">
-        {event.image ? (
-          <img src={event.image} alt={event.title} className="w-full h-full object-cover" />
+        {imageUrl ? (
+          <img src={imageUrl} alt={event.title} className="w-full h-full object-cover" />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-6xl opacity-30">🎉</div>
         )}
